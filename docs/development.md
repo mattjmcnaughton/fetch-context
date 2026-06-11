@@ -34,10 +34,10 @@ just build
 # Run directly
 just run example
 
-# Full pre-push check
+# Full pre-push check (fmt + vet + unit + integration)
 just gate
 
-# Full check including integration tests
+# Full check including the Docker-bound e2e suite
 just gate-expensive
 ```
 
@@ -45,9 +45,12 @@ just gate-expensive
 
 Tests use the stdlib `testing` package:
 
-- Unit tests live alongside the code they test (e.g. `internal/cli/example_test.go`)
+- Unit tests live alongside the code they test (e.g.
+  `internal/core/repoid/repoid_test.go`)
 - Integration tests use the `//go:build integration` build tag
 - Run integration tests with `just test-integration`
+- Contract tests (`//go:build contract`) and e2e tests (`//go:build e2e`)
+  are opt-in; see `docs/testing.md` for the full pyramid
 
 ## Building with a Version
 
@@ -58,7 +61,15 @@ go build -ldflags "-X github.com/mattjmcnaughton/fetch-context/internal/version.
 
 ## Adding a New Command
 
-1. Create `internal/cli/<name>.go` with a `newNameCmd()` function.
-2. Register it in `internal/cli/root.go` via `root.AddCommand(newNameCmd())`.
-3. Keep the command thin — parse args, call a function, emit output.
-4. Add business logic to `internal/services/` as the project grows.
+1. Create `internal/adapters/cli/<name>.go` with a `new<Name>Cmd(...)` function
+   that takes the use case(s) it drives as arguments.
+2. Register it in `internal/adapters/cli/root.go` via
+   `root.AddCommand(new<Name>Cmd(...))`, threading the use case through from
+   the wiring in `cmd/fetch-context/main.go`.
+3. Keep the command a thin shim — parse args, call the use case, format
+   output. Errors return from cobra's `RunE`; the wiring maps them to exit
+   codes (`2` usage, `1` runtime).
+4. Business logic lives in a use case under `internal/core/`, depending only
+   on ports from `internal/ports/`. A new external dependency means a new
+   port plus an adapter under `internal/adapters/`. Read
+   `docs/architecture.md` before adding either.
