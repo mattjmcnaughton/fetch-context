@@ -1,4 +1,4 @@
-package config
+package configstore
 
 import "github.com/spf13/viper"
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mattjmcnaughton/fetch-context/internal/cli"
+	"github.com/mattjmcnaughton/fetch-context/internal/adapters/cli"
 )
 
 func main() {

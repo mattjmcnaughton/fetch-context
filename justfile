@@ -1,10 +1,11 @@
-# Check formatting (exits 1 if any files need formatting)
+# Check formatting (exits 1 if any files need formatting).
+# Scoped to our source dirs: `.` would descend into .agentic/sources clones.
 fmt:
-    @if [ -n "$(gofmt -l .)" ]; then gofmt -l .; exit 1; fi
+    @if [ -n "$(gofmt -l cmd internal tests)" ]; then gofmt -l cmd internal tests; exit 1; fi
 
 # Fix formatting
 fmt-fix:
-    gofmt -w .
+    gofmt -w cmd internal tests
 
 # Run go vet
 vet:

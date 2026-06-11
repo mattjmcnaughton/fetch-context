@@ -34,10 +34,6 @@ func NewRoot() *cobra.Command {
 	viper.SetEnvPrefix("FETCH_CONTEXT")
 	viper.AutomaticEnv()
 
-	root.AddCommand(
-		newExampleCmd(),
-	)
-
 	return root
 }
 
