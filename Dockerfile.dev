@@ -1,0 +1,79 @@
+# Development image for fetch-context.
+#
+# Doubles as the Sandcastle sandbox image — it follows Sandcastle's
+# requirements: non-root `agent` user whose UID/GID can be aligned to the
+# host via build args, `ENTRYPOINT ["sleep", "infinity"]` so Sandcastle can
+# keep the container alive and exec into it, and the worktree bind-mounted
+# at /home/agent/workspace.
+#
+# Build with Sandcastle (UID/GID auto-aligned):
+#   sandcastle docker build-image --dockerfile Dockerfile.dev
+#
+# Build manually:
+#   docker build -f Dockerfile.dev \
+#     --build-arg AGENT_UID=$(id -u) --build-arg AGENT_GID=$(id -g) \
+#     -t fetch-context-dev .
+#
+# Run an interactive shell (overrides the sleep entrypoint):
+#   docker run --rm -it --entrypoint bash \
+#     -v "$PWD":/home/agent/workspace \
+#     -v fetch-context-gomod:/go/pkg/mod \
+#     -v fetch-context-gocache:/home/agent/.cache/go-build \
+#     -e GITHUB_TOKEN -e GITLAB_TOKEN \
+#     fetch-context-dev
+
+FROM golang:1.25-bookworm
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    CGO_ENABLED=0 \
+    GOFLAGS=-buildvcs=false \
+    EDITOR=vim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git \
+        ca-certificates \
+        curl \
+        gawk \
+        jq \
+        neovim \
+    && rm -rf /var/lib/apt/lists/*
+
+# `just` task runner — install system-wide so the agent user can use it.
+RUN curl -fsSL https://just.systems/install.sh \
+        | bash -s -- --to /usr/local/bin
+
+# Node.js + npm — required by the `pi` agent CLI installed below.
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Sandcastle's `docker build-image` passes --build-arg AGENT_UID/AGENT_GID
+# matching the host user so bind-mounted files share an owner.
+ARG AGENT_UID=1000
+ARG AGENT_GID=1000
+
+RUN groupadd -o -g $AGENT_GID agent \
+    && useradd -o -m -u $AGENT_UID -g $AGENT_GID -s /bin/bash agent \
+    && mkdir -p /home/agent/workspace /home/agent/.cache/go-build /go/pkg/mod \
+    && chown -R agent:agent /home/agent /go
+
+USER ${AGENT_UID}:${AGENT_GID}
+ENV PATH=/home/agent/.local/bin:/home/agent/.codex/bin:/home/agent/.pi/bin:/usr/local/bin:/usr/bin:/bin:/go/bin:/usr/local/go/bin \
+    GOCACHE=/home/agent/.cache/go-build
+
+# Agent CLIs: Claude Code, Codex, and pi — installed into the agent user's home.
+RUN curl -fsSL https://claude.ai/install.sh | bash
+RUN curl -fsSL https://chatgpt.com/codex/install.sh | sh
+RUN curl -fsSL https://pi.dev/install.sh | sh
+
+# Skip Claude Code's first-run onboarding prompt.
+RUN echo '{"hasCompletedOnboarding": true}' > /home/agent/.claude.json
+
+WORKDIR /home/agent/workspace
+
+# Pre-warm the module cache so the first `go build` doesn't re-download every
+# dependency. Source is bind-mounted at run time.
+COPY --chown=agent:agent go.mod go.sum* ./
+RUN go mod download
+
+ENTRYPOINT ["sleep", "infinity"]

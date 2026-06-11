@@ -12,3 +12,14 @@ dist/
 *.exe
 *.test
 vendor/
+
+# Node (sandcastle orchestration)
+node_modules/
+
+# Sandcastle runtime artifacts
+.sandcastle/.env
+.sandcastle/logs/
+.sandcastle/worktrees/
+
+.agentic
+.worktrees
