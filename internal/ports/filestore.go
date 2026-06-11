@@ -7,6 +7,7 @@ import "io"
 // sees afero.
 type FileStore interface {
 	MkdirAll(path string) error
+	// WriteFile writes data, creating missing parent directories.
 	WriteFile(path string, data []byte) error
 	// OpenForRead opens a file for reading; callers must Close it.
 	OpenForRead(path string) (io.ReadCloser, error)
