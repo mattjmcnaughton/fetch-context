@@ -1,25 +1,21 @@
+// Package configstore loads the YAML config under $FETCH_CONTEXT_HOME. The
+// full store (profiles, validation) lands with the load/list slice; one-off
+// commands only need the resolved target, which must default sanely when no
+// config exists (AC-CONFIG-04).
 package configstore
 
-import "github.com/spf13/viper"
+import (
+	"github.com/mattjmcnaughton/fetch-context/internal/core/targetpath"
+)
 
-// Config holds application configuration loaded from environment variables.
-// Environment variables are prefixed with FETCH_CONTEXT_
-// (e.g. FETCH_CONTEXT_LOG_LEVEL=debug).
-//
-// Add fields here as your application grows and bind them in Load().
+// Config is the parsed configuration.
 type Config struct {
-	LogLevel string `mapstructure:"log_level"`
+	// Target is the install target relative to the repo root.
+	Target string
 }
 
-// Load returns the current configuration from Viper.
-// Assumes viper.SetEnvPrefix and viper.AutomaticEnv have already been called
-// in the root command setup.
-func Load() (*Config, error) {
-	viper.SetDefault("log_level", "info")
-
-	var cfg Config
-	if err := viper.Unmarshal(&cfg); err != nil {
-		return nil, err
-	}
-	return &cfg, nil
+// Default is the configuration used when no config file exists: one-off
+// commands work without any config.
+func Default() *Config {
+	return &Config{Target: targetpath.DefaultTarget}
 }

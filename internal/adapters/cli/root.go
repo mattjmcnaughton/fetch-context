@@ -9,10 +9,18 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/mattjmcnaughton/fetch-context/internal/core/materialize"
 	"github.com/mattjmcnaughton/fetch-context/internal/core/usageerr"
 )
 
-func NewRoot() *cobra.Command {
+// Deps holds the use cases (and the resolved global target) the wiring
+// injects into the CLI.
+type Deps struct {
+	Repo   *materialize.Repo
+	Target string
+}
+
+func NewRoot(deps Deps) *cobra.Command {
 	var logLevel string
 
 	root := &cobra.Command{
@@ -52,6 +60,7 @@ func NewRoot() *cobra.Command {
 
 	root.AddCommand(
 		newVersionCmd(),
+		newRepoCmd(deps),
 	)
 
 	return root

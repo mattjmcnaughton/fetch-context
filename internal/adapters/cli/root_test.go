@@ -11,7 +11,7 @@ import (
 
 func executeRoot(t *testing.T, args ...string) (stdout, stderr string, err error) {
 	t.Helper()
-	root := NewRoot()
+	root := NewRoot(Deps{})
 	var out, errBuf bytes.Buffer
 	root.SetOut(&out)
 	root.SetErr(&errBuf)

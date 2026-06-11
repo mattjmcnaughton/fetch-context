@@ -46,11 +46,17 @@ adapter when a token is present for the host.
 ## Decision 4 — How tokens reach `git clone`
 
 Not pinned by the docs: the mechanics of using `GITHUB_TOKEN` for a private
-*clone* (as opposed to forge enumeration). **Decision:** the `gitrepo` adapter
-receives an optional per-host credential map at construction (from wiring) and
-injects it as an `http.<scheme>://<host>/.extraheader=Authorization: Basic …`
-git config flag per invocation. Nothing is written to disk and the token never
-appears in the clone's saved remote URL.
+*clone* (as opposed to forge enumeration). **Decision (revised during
+implementation):** the `gitrepo` adapter receives an ordered list of
+credentials (kind + token) at construction. Every clone/fetch is attempted
+unauthenticated first; on an auth-shaped failure each credential is retried
+once via a per-invocation `-c http.extraHeader=Authorization: Basic …` flag
+(username `x-access-token` for GitHub-kind, `oauth2` for GitLab-kind).
+Rationale for the revision: a per-host map cannot decide which token applies
+to a host it has never heard of — including the loopback fixture host the
+hermetic e2e suite uses — whereas try-then-retry needs no host knowledge, at
+the cost of one extra round trip on private repos. Nothing is written to disk
+and the token never appears in the clone's saved remote URL.
 
 ## Decision 5 — "Managed clone" detection
 

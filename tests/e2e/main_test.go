@@ -11,10 +11,18 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/mattjmcnaughton/fetch-context/internal/testing/gitfixture"
 )
 
 // fcbin is the absolute path of the binary under test.
 var fcbin string
+
+// fixture is the suite-wide loopback git server (acceptance.md §1.3).
+var fixture *gitfixture.Server
+
+// privateToken gates the private fixture repo (AC-AUTH-02/03).
+const privateToken = "s3cret-token"
 
 func TestMain(m *testing.M) {
 	code, err := runSuite(m)
@@ -43,7 +51,33 @@ func runSuite(m *testing.M) (int, error) {
 		}
 		os.Setenv("FCBIN", fcbin)
 	}
+
+	var err error
+	fixture, err = gitfixture.New()
+	if err != nil {
+		return 0, fmt.Errorf("starting gitfixture: %w", err)
+	}
+	defer fixture.Close()
+	if err := seedFixture(); err != nil {
+		return 0, fmt.Errorf("seeding gitfixture: %w", err)
+	}
+
 	return m.Run(), nil
+}
+
+// seedFixture creates the §1.3 seed repos.
+func seedFixture() error {
+	public := map[string]map[string]string{
+		"fixture/hello":   {"MARKER": "hello marker\n"},
+		"fixture/other":   {"OTHER": "other\n"},
+		"fixture/refresh": {"MARKER": "v1\n"},
+	}
+	for name, files := range public {
+		if err := fixture.Seed(name, files); err != nil {
+			return err
+		}
+	}
+	return fixture.SeedPrivate("private/secret", privateToken, map[string]string{"SECRET": "s\n"})
 }
 
 // repoRoot walks up from the test's working directory to the directory
