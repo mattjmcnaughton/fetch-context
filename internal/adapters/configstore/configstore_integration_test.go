@@ -110,3 +110,113 @@ func TestLoadUnknownFieldRejected(t *testing.T) {
 		t.Fatal("unknown field must be rejected loudly, not ignored")
 	}
 }
+
+func TestLoadCloneDefaultsAppliedWhenAbsent(t *testing.T) {
+	home := t.TempDir()
+	writeConfig(t, home, "target: .agentic/ctx\n")
+	cfg, err := New(home).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Clone.Depth != 1 || cfg.Clone.Parallel != 4 {
+		t.Errorf("Clone = %+v, want defaults {Depth:1 Parallel:4}", cfg.Clone)
+	}
+}
+
+func TestLoadCloneSection(t *testing.T) {
+	home := t.TempDir()
+	writeConfig(t, home, "clone:\n  depth: 0\n  parallel: 2\n")
+	cfg, err := New(home).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Clone.Depth != 0 || cfg.Clone.Parallel != 2 {
+		t.Errorf("Clone = %+v, want {Depth:0 Parallel:2} (explicit depth 0 = full history)", cfg.Clone)
+	}
+}
+
+func TestLoadCloneSectionRejectsInvalidValues(t *testing.T) {
+	for name, content := range map[string]string{
+		"negative depth":    "clone:\n  depth: -1\n",
+		"zero parallel":     "clone:\n  parallel: 0\n",
+		"negative parallel": "clone:\n  parallel: -3\n",
+	} {
+		home := t.TempDir()
+		writeConfig(t, home, content)
+		if _, err := New(home).Load(); err == nil {
+			t.Errorf("%s: want loud config error", name)
+		}
+	}
+}
+
+func TestLoadRepoEntryForms(t *testing.T) {
+	home := t.TempDir()
+	writeConfig(t, home, `
+profiles:
+  mixed:
+    repos:
+      - github.com/foo/scalar
+      - ref: github.com/foo/full
+        depth: 0
+        branch: develop
+      - ref: github.com/foo/plain-mapping
+`)
+	cfg, err := New(home).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repos := cfg.Profiles["mixed"].Repos
+	if len(repos) != 3 {
+		t.Fatalf("repos = %+v, want 3 entries", repos)
+	}
+	if repos[0].Ref != "github.com/foo/scalar" || repos[0].Depth != nil || repos[0].Branch != "" {
+		t.Errorf("scalar entry = %+v", repos[0])
+	}
+	if repos[1].Ref != "github.com/foo/full" || repos[1].Depth == nil || *repos[1].Depth != 0 || repos[1].Branch != "develop" {
+		t.Errorf("mapping entry = %+v, want depth 0 (explicit) and branch develop", repos[1])
+	}
+	if repos[2].Ref != "github.com/foo/plain-mapping" || repos[2].Depth != nil {
+		t.Errorf("ref-only mapping = %+v, want nil depth (inherit)", repos[2])
+	}
+}
+
+func TestLoadRepoEntryUnknownFieldRejectedWithLine(t *testing.T) {
+	home := t.TempDir()
+	writeConfig(t, home, `profiles:
+  p:
+    repos:
+      - ref: a/b
+        brnch: oops
+`)
+	_, err := New(home).Load()
+	if err == nil {
+		t.Fatal("unknown repo-entry field must be rejected loudly")
+	}
+	if !strings.Contains(err.Error(), "brnch") || !strings.Contains(err.Error(), "line 5") {
+		t.Errorf("error %q should name the unknown field and its line", err)
+	}
+}
+
+func TestLoadRepoEntryRequiresRef(t *testing.T) {
+	home := t.TempDir()
+	writeConfig(t, home, "profiles:\n  p:\n    repos:\n      - depth: 1\n")
+	if _, err := New(home).Load(); err == nil {
+		t.Fatal("mapping repo entry without ref must be rejected")
+	}
+}
+
+func TestLoadRepoEntryRejectsNegativeDepth(t *testing.T) {
+	home := t.TempDir()
+	writeConfig(t, home, "profiles:\n  p:\n    repos:\n      - ref: a/b\n        depth: -2\n")
+	if _, err := New(home).Load(); err == nil {
+		t.Fatal("negative per-repo depth must be rejected")
+	}
+}
+
+func TestLoadRepoEntryRejectsNonScalarNonMapping(t *testing.T) {
+	home := t.TempDir()
+	writeConfig(t, home, "profiles:\n  p:\n    repos:\n      - [a/b]\n")
+	if _, err := New(home).Load(); err == nil {
+		t.Fatal("sequence repo entry must be rejected")
+	}
+}

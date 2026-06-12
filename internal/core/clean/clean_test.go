@@ -102,7 +102,7 @@ func TestCleanProfileClearsOnlyThatProfilesTarget(t *testing.T) {
 
 func TestCleanProfileWithoutOverrideUsesGlobalTarget(t *testing.T) {
 	f := newCleanFixture(t)
-	f.config.Cfg.Profiles["plain"] = ports.Profile{Repos: []string{"a/b"}}
+	f.config.Cfg.Profiles["plain"] = ports.Profile{Repos: fakes.RepoEntries("a/b")}
 	if err := f.uc.Run(context.Background(), "plain"); err != nil {
 		t.Fatal(err)
 	}

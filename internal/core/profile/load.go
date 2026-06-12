@@ -65,7 +65,11 @@ func (l *Load) Run(ctx context.Context, name string) error {
 
 	var errs []error
 	if len(prof.Repos) > 0 {
-		if err := l.repos.Materialize(ctx, materialize.RepoRequest{Refs: prof.Repos, Target: target}); err != nil {
+		refs := make([]string, 0, len(prof.Repos))
+		for _, entry := range prof.Repos {
+			refs = append(refs, entry.Ref)
+		}
+		if err := l.repos.Materialize(ctx, materialize.RepoRequest{Refs: refs, Target: target}); err != nil {
 			errs = append(errs, fmt.Errorf("repos: %w", err))
 		}
 	}

@@ -29,7 +29,7 @@ func newLoadFixture() *loadFixture {
 		urls:   &fakes.FakeMaterializer[materialize.URLRequest]{},
 	}
 	f.config.Cfg.Profiles["backend"] = ports.Profile{
-		Repos:  []string{"github.com/redis/redis"},
+		Repos:  fakes.RepoEntries("github.com/redis/redis"),
 		Groups: []string{"github.com/my-org"},
 		URLs:   []string{"https://example.com/blog/post"},
 	}
@@ -61,7 +61,7 @@ func TestLoadPerProfileTargetOverride(t *testing.T) {
 	f := newLoadFixture()
 	f.config.Cfg.Profiles["backend"] = ports.Profile{
 		Target: ".agentic/backend",
-		Repos:  []string{"a/b"},
+		Repos:  fakes.RepoEntries("a/b"),
 	}
 	if err := f.uc.Run(context.Background(), "backend"); err != nil {
 		t.Fatal(err)

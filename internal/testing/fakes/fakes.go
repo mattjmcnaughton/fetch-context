@@ -200,7 +200,11 @@ type FakeConfigStore struct {
 
 func NewConfigStore() *FakeConfigStore {
 	return &FakeConfigStore{
-		Cfg:     ports.Config{Target: ".agentic/sources", Profiles: map[string]ports.Profile{}},
+		Cfg: ports.Config{
+			Target:   ".agentic/sources",
+			Clone:    ports.CloneDefaults{Depth: 1, Parallel: 4},
+			Profiles: map[string]ports.Profile{},
+		},
 		PathVal: "/home/u/.config/fetch-context/config.yaml",
 	}
 }
@@ -245,3 +249,13 @@ var (
 	_ ports.ConfigStore     = (*FakeConfigStore)(nil)
 	_ ports.Editor          = (*FakeEditor)(nil)
 )
+
+// RepoEntries builds plain profile repo entries (no per-repo overrides)
+// from refs — the scalar YAML form.
+func RepoEntries(refs ...string) []ports.RepoEntry {
+	entries := make([]ports.RepoEntry, 0, len(refs))
+	for _, ref := range refs {
+		entries = append(entries, ports.RepoEntry{Ref: ref})
+	}
+	return entries
+}

@@ -58,7 +58,11 @@ func (l *List) Run(ctx context.Context) (string, error) {
 		}
 		targetAbs := targetpath.Resolve(root, target)
 		fmt.Fprintf(&sb, "\n%s (target: %s)\n", name, target)
-		l.renderEntries(&sb, "repos", prof.Repos, func(ref string) string {
+		repoRefs := make([]string, 0, len(prof.Repos))
+		for _, entry := range prof.Repos {
+			repoRefs = append(repoRefs, entry.Ref)
+		}
+		l.renderEntries(&sb, "repos", repoRefs, func(ref string) string {
 			spec, err := repoid.Parse(ref)
 			if err != nil {
 				return ""

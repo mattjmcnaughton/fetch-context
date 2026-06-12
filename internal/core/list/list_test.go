@@ -30,12 +30,12 @@ func newListFixture() *listFixture {
 func TestListShowsProfilesAndContents(t *testing.T) {
 	f := newListFixture()
 	f.config.Cfg.Profiles["backend"] = ports.Profile{
-		Repos:  []string{"github.com/redis/redis"},
+		Repos:  fakes.RepoEntries("github.com/redis/redis"),
 		Groups: []string{"gitlab.com/acme"},
 		URLs:   []string{"https://example.com/blog/post"},
 	}
 	f.config.Cfg.Profiles["web-stack"] = ports.Profile{
-		Repos: []string{"github.com/foo/bar"},
+		Repos: fakes.RepoEntries("github.com/foo/bar"),
 	}
 
 	out, err := f.uc.Run(context.Background())
@@ -56,7 +56,7 @@ func TestListShowsProfilesAndContents(t *testing.T) {
 func TestListReportsMaterializedState(t *testing.T) {
 	f := newListFixture()
 	f.config.Cfg.Profiles["backend"] = ports.Profile{
-		Repos: []string{"github.com/redis/redis", "github.com/not/yet"},
+		Repos: fakes.RepoEntries("github.com/redis/redis", "github.com/not/yet"),
 		URLs:  []string{"https://example.com/blog/post"},
 	}
 	for _, p := range []string{
@@ -105,7 +105,7 @@ func TestListHonorsPerProfileTargetForMaterializedState(t *testing.T) {
 	f := newListFixture()
 	f.config.Cfg.Profiles["backend"] = ports.Profile{
 		Target: ".agentic/backend",
-		Repos:  []string{"github.com/foo/bar"},
+		Repos:  fakes.RepoEntries("github.com/foo/bar"),
 	}
 	if err := f.fs.WriteFile("/ws/.agentic/backend/repos/github.com/foo/bar/x", []byte("x")); err != nil {
 		t.Fatal(err)
