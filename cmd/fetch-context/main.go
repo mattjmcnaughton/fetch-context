@@ -15,6 +15,7 @@ import (
 	"github.com/mattjmcnaughton/fetch-context/internal/adapters/filestore"
 	"github.com/mattjmcnaughton/fetch-context/internal/adapters/gitrepo"
 	"github.com/mattjmcnaughton/fetch-context/internal/adapters/hostrepo"
+	"github.com/mattjmcnaughton/fetch-context/internal/adapters/pagereader"
 	"github.com/mattjmcnaughton/fetch-context/internal/core/materialize"
 	"github.com/mattjmcnaughton/fetch-context/internal/core/usageerr"
 )
@@ -36,8 +37,13 @@ func main() {
 	locator := hostrepo.New()
 	cfg := configstore.Default()
 
+	// JINA_BASE_URL is a contract seam (acceptance.md §1.2): it redirects
+	// the reader proxy to a loopback mock in hermetic runs.
+	reader := pagereader.New(os.Getenv("JINA_BASE_URL"), log)
+
 	deps := cli.Deps{
 		Repo:   materialize.NewRepo(git, fs, locator, log),
+		URL:    materialize.NewURL(reader, fs, locator, log),
 		Target: cfg.Target,
 	}
 

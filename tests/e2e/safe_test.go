@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -25,6 +26,29 @@ func TestAC_SAFE_01_ManagedCloneIsRefreshed(t *testing.T) {
 	}
 	if !treeClean(t, dest) {
 		t.Error("managed clone not refreshed to a clean tree")
+	}
+}
+
+// AC-SAFE-03 is the conflict-behavior view of AC-URL-03: url markdown is
+// overwritten on re-fetch, never refused.
+func TestAC_SAFE_03_URLMarkdownOverwrittenOnRefetch(t *testing.T) {
+	w := newWorkspace(t)
+	if res := w.run("url", "http://example.test/page"); res.code != 0 {
+		t.Fatalf("first fetch: exit = %d, stderr: %s", res.code, res.stderr)
+	}
+	page := w.target("urls", "example.test", "page.md")
+	writeFile(t, page, "STALE")
+
+	res := w.run("url", "http://example.test/page")
+	if res.code != 0 {
+		t.Fatalf("re-fetch refused: exit = %d, stderr: %s", res.code, res.stderr)
+	}
+	b, err := os.ReadFile(page)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), "STALE") {
+		t.Error("stale content not overwritten")
 	}
 }
 

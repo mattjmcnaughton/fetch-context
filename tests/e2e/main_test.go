@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/mattjmcnaughton/fetch-context/internal/testing/gitfixture"
+	"github.com/mattjmcnaughton/fetch-context/internal/testing/readermock"
 )
 
 // fcbin is the absolute path of the binary under test.
@@ -20,6 +21,9 @@ var fcbin string
 
 // fixture is the suite-wide loopback git server (acceptance.md §1.3).
 var fixture *gitfixture.Server
+
+// reader is the suite-wide mock reader proxy.
+var reader *readermock.Server
 
 // privateToken gates the private fixture repo (AC-AUTH-02/03).
 const privateToken = "s3cret-token"
@@ -61,6 +65,9 @@ func runSuite(m *testing.M) (int, error) {
 	if err := seedFixture(); err != nil {
 		return 0, fmt.Errorf("seeding gitfixture: %w", err)
 	}
+
+	reader = readermock.New()
+	defer reader.Close()
 
 	return m.Run(), nil
 }

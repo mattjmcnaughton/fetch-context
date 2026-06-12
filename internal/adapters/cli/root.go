@@ -17,6 +17,7 @@ import (
 // injects into the CLI.
 type Deps struct {
 	Repo   *materialize.Repo
+	URL    *materialize.URL
 	Target string
 }
 
@@ -61,6 +62,7 @@ func NewRoot(deps Deps) *cobra.Command {
 	root.AddCommand(
 		newVersionCmd(),
 		newRepoCmd(deps),
+		newURLCmd(deps),
 	)
 
 	return root

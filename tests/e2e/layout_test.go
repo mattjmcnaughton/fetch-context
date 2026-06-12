@@ -7,6 +7,24 @@ import (
 	"testing"
 )
 
+func TestAC_LAYOUT_01_ReposAndURLsAreSiblings(t *testing.T) {
+	w := newWorkspace(t)
+	if res := w.run("repo", fixture.CloneURL("fixture/hello")); res.code != 0 {
+		t.Fatalf("repo: exit = %d, stderr: %s", res.code, res.stderr)
+	}
+	if res := w.run("url", "http://example.test/page"); res.code != 0 {
+		t.Fatalf("url: exit = %d, stderr: %s", res.code, res.stderr)
+	}
+	repos, err := os.Stat(w.target("repos"))
+	if err != nil || !repos.IsDir() {
+		t.Errorf("repos/ not directly under the target: %v", err)
+	}
+	urls, err := os.Stat(w.target("urls"))
+	if err != nil || !urls.IsDir() {
+		t.Errorf("urls/ not directly under the target: %v", err)
+	}
+}
+
 func TestAC_LAYOUT_02_HostOwnerRepoNesting(t *testing.T) {
 	w := newWorkspace(t)
 	res := w.run("repo", fixture.CloneURL("fixture/hello"))

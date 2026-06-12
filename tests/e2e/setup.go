@@ -32,6 +32,8 @@ func newWorkspace(t *testing.T) *workspace {
 		home: t.TempDir(),
 	}
 	mustGit(t, w.dir, "init", "-q")
+	// Contract seams (acceptance.md §1.2) point at the loopback fixtures.
+	w.setEnv("JINA_BASE_URL=" + reader.URL())
 	return w
 }
 

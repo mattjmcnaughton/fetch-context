@@ -123,9 +123,41 @@ func (f *FakeFileStore) ReadString(path string) string {
 	return string(b)
 }
 
+// FakePageReader implements ports.PageReader.
+type FakePageReader struct {
+	// Fetched records every URL requested, in order.
+	Fetched []string
+	// Pages scripts responses per URL; URLs not present return Default.
+	Pages map[string][]byte
+	// Errs scripts failures per URL.
+	Errs map[string]error
+	// Default is returned for unscripted URLs.
+	Default []byte
+}
+
+func NewPageReader() *FakePageReader {
+	return &FakePageReader{
+		Pages:   make(map[string][]byte),
+		Errs:    make(map[string]error),
+		Default: []byte("# fake page\n"),
+	}
+}
+
+func (p *FakePageReader) Fetch(_ context.Context, url string) ([]byte, error) {
+	p.Fetched = append(p.Fetched, url)
+	if err := p.Errs[url]; err != nil {
+		return nil, err
+	}
+	if page, ok := p.Pages[url]; ok {
+		return page, nil
+	}
+	return p.Default, nil
+}
+
 // Interface conformance.
 var (
 	_ ports.GitRepo         = (*FakeGitRepo)(nil)
 	_ ports.HostRepoLocator = (*FakeHostRepoLocator)(nil)
 	_ ports.FileStore       = (*FakeFileStore)(nil)
+	_ ports.PageReader      = (*FakePageReader)(nil)
 )
