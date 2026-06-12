@@ -48,6 +48,10 @@ build:
     mkdir -p bin
     go build -o bin/fetch-context ./cmd/fetch-context
 
+# Install the binary into $GOBIN (or $GOPATH/bin)
+install:
+    go install ./cmd/fetch-context
+
 # Run the CLI
 run *args:
     go run ./cmd/fetch-context {{args}}

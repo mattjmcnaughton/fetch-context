@@ -265,7 +265,7 @@ All under `internal/testing/`, importable from any test layer.
 
 | Package | Purpose | Used by |
 |---|---|---|
-| `internal/testing/fakes/` | One in-memory fake per port (`FakeGitRepo`, `FakeForgeEnumerator`, `FakeFileStore`, `FakeHostRepoLocator`, `FakePageReader`, `FakeConfigStore`, `FakeEditor`), plus the three `Fake*Materializer` for `LoadProfile` | Unit tests in `internal/core/` |
+| `internal/testing/fakes/` | One in-memory fake per port (`FakeGitRepo`, `FakeForgeEnumerator`, `FakeFileStore`, `FakeHostRepoLocator`, `FakePageReader`, `FakeConfigStore`, `FakeEditor`), plus the generic `FakeMaterializer[Req]` instantiated three ways for `LoadProfile` | Unit tests in `internal/core/` |
 | `internal/testing/forgemock/` | `httptest.Server` implementing the GitHub + GitLab endpoints fetch-context calls, with pagination, auth, and a small control surface for fixture seeding | Adapter integration tests, contract-twin tests, e2e |
 | `internal/testing/readermock/` | `httptest.Server` returning canned markdown for any wrapped URL | `pagereader` integration tests, contract-twin tests, e2e |
 | `internal/testing/gitfixture/` | Bare-repo HTTP server backed by `git http-backend` exec; canned repos seeded into `os.TempDir()` | `gitrepo` integration tests, e2e |

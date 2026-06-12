@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/mattjmcnaughton/fetch-context/internal/core/clean"
 	"github.com/mattjmcnaughton/fetch-context/internal/core/editconfig"
@@ -76,9 +75,6 @@ func NewRoot(deps Deps) *cobra.Command {
 		"info",
 		"Log level (debug, info, warn, error)",
 	)
-
-	viper.SetEnvPrefix("FETCH_CONTEXT")
-	viper.AutomaticEnv()
 
 	root.AddCommand(
 		newVersionCmd(),

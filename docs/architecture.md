@@ -58,7 +58,7 @@ internal/
     pagereader/                 # Driven: HTTP client wrapping jina base URL
     filestore/                  # Driven: afero.OsFs behind a narrow interface
     hostrepo/                   # Driven: `git rev-parse --show-toplevel`
-    configstore/                # Driven: viper + YAML under $FETCH_CONTEXT_HOME
+    configstore/                # Driven: strict yaml.v3 under $FETCH_CONTEXT_HOME
     editor/                     # Driven: $VISUAL > $EDITOR > vi via os/exec
     envx/                       # Adapter-layer helper: typed env access used by other adapters
   testing/                      # Shared test infrastructure (see docs/testing.md)
@@ -92,7 +92,7 @@ cmd/fetch-context/main.go        (wiring; the only file that imports every adapt
   │     │  (implemented by ↑)
   ├── internal/adapters/<rest>/  (driven adapters: git, forge, pagereader, …)
   │
-  └── third-party deps           (cobra, viper, afero, net/http, os/exec, …)
+  └── third-party deps           (cobra, afero, yaml.v3, net/http, os/exec, …)
         — only adapters and wiring import these
 ```
 
@@ -107,11 +107,11 @@ on these; adapters implement them.
 | Port | Purpose | Adapter(s) |
 |---|---|---|
 | `GitRepo` | shallow clone, fetch + hard-reset, is-managed-clone check | `adapters/gitrepo` (git CLI) |
-| `ForgeEnumerator` | given `<host>/<slug>` and host kind, return `[]RepoSpec` with pagination + auth | `adapters/forge/github`, `adapters/forge/gitlab` |
+| `ForgeEnumerator` | given a group slug, return `[]GroupRepo` with pagination + auth | `adapters/forge/github`, `adapters/forge/gitlab` |
 | `PageReader` | given URL, return markdown bytes (wraps origin URL with jina base) | `adapters/pagereader` (net/http) |
 | `FileStore` | write/mkdir/delete/exists/walk under target | `adapters/filestore` (afero.OsFs) |
 | `HostRepoLocator` | `git rev-parse --show-toplevel` from CWD → repo root, or error | `adapters/hostrepo` (git CLI) |
-| `ConfigStore` | load/save/validate the YAML config under `$FETCH_CONTEXT_HOME` | `adapters/configstore` (viper + YAML) |
+| `ConfigStore` | load/save/validate the YAML config under `$FETCH_CONTEXT_HOME` | `adapters/configstore` (strict yaml.v3) |
 | `Editor` | launch `$VISUAL` / `$EDITOR` / `vi` on a path, block until exit | `adapters/editor` (os/exec) |
 
 **One forge port, two adapters.** `ForgeEnumerator` is forge-agnostic; the use
@@ -128,8 +128,8 @@ locator and not pretend to be a git binary.
 
 **`FileStore` is a narrow port, not `afero.Fs`.** The interface exposes only
 the ~6 methods the core needs (`MkdirAll`, `WriteFile`, `Remove`, `Exists`,
-`Walk`, `OpenForRead`). The real adapter wraps `afero.OsFs`; tests use the
-`fakes.FileStore` (afero `MemMapFs`-backed) or pass a tmpdir-backed real
+`Walk`, `OpenForRead`). The real adapter wraps `afero.OsFs`; tests use
+`fakes.FakeFileStore` (afero `MemMapFs`-backed) or pass a tmpdir-backed real
 adapter for integration. The core never sees afero's surface.
 
 ## Adapter-layer helper: `envx`
@@ -157,7 +157,7 @@ its port dependencies and exposes one or a few methods.
 | `LoadProfile` | `load` | `ConfigStore`, `HostRepoLocator`, and three sub-interfaces (see below) |
 | `Clean` | `clean` | `FileStore`, `HostRepoLocator`, `ConfigStore` (for `clean <profile>`) |
 | `ListProfiles` | `list` | `ConfigStore`, `FileStore`, `HostRepoLocator` |
-| `EditConfig` | `edit` | `Editor`, `ConfigStore` |
+| `EditConfig` | `edit` | `Editor`, `ConfigStore`, `FileStore` (creates the config dir before editing) |
 
 ### `LoadProfile` composition
 
@@ -165,15 +165,17 @@ its port dependencies and exposes one or a few methods.
 through three small interfaces it declares for itself:
 
 ```go
-type RepoMaterializer  interface { Materialize(ctx, RepoSpec)  error }
-type GroupMaterializer interface { Materialize(ctx, GroupSpec) error }
-type URLMaterializer   interface { Materialize(ctx, URLSpec)   error }
+type RepoMaterializer  interface { Materialize(ctx, materialize.RepoRequest)  error }
+type GroupMaterializer interface { Materialize(ctx, materialize.GroupRequest) error }
+type URLMaterializer   interface { Materialize(ctx, materialize.URLRequest)   error }
 ```
 
-The real wiring connects these to `*MaterializeRepo`, `*MaterializeGroup`,
-`*MaterializeURL`. The shape lets `LoadProfile`'s unit tests pin
-continue-on-error semantics (R3 in acceptance.md) with three tiny fakes
-instead of standing up every port the sub-use-cases transitively need.
+`*materialize.Repo`, `*materialize.Group`, and `*materialize.URL` satisfy
+these directly, so the wiring passes the concrete use cases through. The
+shape lets `LoadProfile`'s unit tests pin continue-on-error semantics (R3 in
+acceptance.md) with three tiny fakes (instances of the generic
+`fakes.FakeMaterializer[Req]`) instead of standing up every port the
+sub-use-cases transitively need.
 
 ## Pure Domain Services
 
@@ -211,9 +213,8 @@ forge adapters as constructor args. The core never sees them.
 | Library | Used by | Notes |
 |---|---|---|
 | Cobra | `adapters/cli` | Driving adapter. Each subcommand is a thin shim: parse args, call use case, format output. |
-| Viper | `adapters/configstore`, wiring | YAML loading + `FETCH_CONTEXT_*` env-var resolution. Stays in the adapter/wiring edge. |
 | Afero | `adapters/filestore` | Hidden behind the narrow `FileStore` port. The core does not import afero. |
-| YAML (gopkg.in/yaml.v3) | `adapters/configstore` | Behind viper or alongside it; concrete choice deferred to implementation. |
+| YAML (gopkg.in/yaml.v3) | `adapters/configstore` | Strict decoding (`KnownFields`) so malformed configs and unknown fields fail loudly (AC-CONFIG-03). Chosen over viper, whose lenient parsing would swallow exactly the errors that AC requires surfaced; `FETCH_CONTEXT_*` env vars are read directly in wiring via `envx`. |
 
 Standard-library choices worth naming:
 

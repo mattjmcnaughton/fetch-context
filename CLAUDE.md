@@ -2,7 +2,7 @@
 
 Pull external context into the current repo: clone upstream source repos and render web pages to markdown, so an agent can Read and Grep them locally.
 
-Go CLI built with **strict hexagonal (ports-and-adapters) architecture**. Cobra for the driving CLI, Viper for config, slog for logging, afero behind a narrow file-store port.
+Go CLI built with **strict hexagonal (ports-and-adapters) architecture**. Cobra for the driving CLI, strict yaml.v3 for config, slog for logging, afero behind a narrow file-store port.
 
 ## Quick Reference
 
@@ -47,7 +47,7 @@ Full layout, port table, and use-case table live in `docs/architecture.md`.
 - **One file per cobra subcommand** under `internal/adapters/cli/`. Each is a thin shim: parse args, call use case, format output. Errors return from cobra's `RunE`.
 - **Use cases take `context.Context` first** and an explicit `*slog.Logger` — no globals.
 - **Tokens (`GITHUB_TOKEN`, `GITLAB_TOKEN`) are read in wiring** and passed to forge adapters as constructor args. The core never sees them.
-- **Config** loads from `~/.config/fetch-context/config.yaml` via viper; `FETCH_CONTEXT_HOME` redirects the config dir for tests/sandboxing. Env vars are `FETCH_CONTEXT_`-prefixed.
+- **Config** loads from `~/.config/fetch-context/config.yaml` via strict yaml.v3 decoding in `adapters/configstore`; `FETCH_CONTEXT_HOME` redirects the config dir for tests/sandboxing. Env vars are `FETCH_CONTEXT_`-prefixed and read in wiring.
 - **Test build tags:** unit (none) / `integration` / `contract` / `e2e`. See `docs/testing.md` for the pyramid, mock packages, and the AC-ID ↔ e2e-test 1:1 rule.
 - **Version** defaults to `"dev"`, overridden at build time with `-ldflags "-X github.com/mattjmcnaughton/fetch-context/internal/version.Version=x.y.z"`.
 

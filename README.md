@@ -25,7 +25,7 @@ fetch-context group <host>/<org-or-group>...   # clone every repo under an org /
 fetch-context url <url>...               # fetch one or more pages to markdown
 fetch-context load <profile>             # materialize a named profile from config
 fetch-context list                       # show profiles, and what's materialized on disk
-fetch-context clean [repos|urls]         # remove materialized content
+fetch-context clean [repos|urls|<profile>]   # remove materialized content
 fetch-context edit                       # open config in $VISUAL/$EDITOR/vi
 fetch-context version
 ```
@@ -91,9 +91,13 @@ Shows every profile defined in config with its `repos` / `groups` / `urls` conte
 fetch-context clean          # remove everything under the resolved target
 fetch-context clean repos    # remove only sources/repos/
 fetch-context clean urls     # remove only sources/urls/
+fetch-context clean backend  # remove the target the `backend` profile resolves to
 ```
 
-`fetch-context` only ever removes content inside its own target tree.
+`clean <profile>` clears the target that profile resolved to (which may
+differ from the global target via the profile's `target:` override); it never
+auto-discovers other profiles' targets. `fetch-context` only ever removes
+content inside its own target tree.
 
 ### `edit`
 

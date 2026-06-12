@@ -1,7 +1,7 @@
 # ADR-0001: Build decisions not pinned by R1–R8
 
-Status: **proposed** (each decision is confirmed as it is implemented; the
-status flips to "accepted" in the closing phase of the initial build)
+Status: **accepted** (2026-06-12; every decision below was confirmed during
+the initial build — decision 4 was revised in flight, see its section)
 
 ## Context
 
