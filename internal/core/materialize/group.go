@@ -13,10 +13,15 @@ import (
 	"github.com/mattjmcnaughton/fetch-context/internal/ports"
 )
 
-// GroupRequest is one `group` invocation.
+// GroupRequest is one `group` invocation. Depth applies to every enumerated
+// repo (groups always clone the remote default branch).
 type GroupRequest struct {
 	Refs   []string
 	Target string
+	// Depth is the history depth for every clone; 0 = full history.
+	Depth int
+	// Parallel caps concurrent clones; <= 1 runs sequentially.
+	Parallel int
 }
 
 // Group is the MaterializeGroup use case: enumerate an org/group via its
@@ -76,7 +81,7 @@ func (m *Group) Materialize(ctx context.Context, req GroupRequest) error {
 		}
 		for _, repo := range repos {
 			dest := targetpath.GroupRepoDir(targetAbs, spec, repo.Path)
-			if err := cloneOrRefresh(ctx, m.git, m.fs, m.log, repo.CloneURL, dest, ports.CloneOptions{Depth: 1}); err != nil {
+			if err := cloneOrRefresh(ctx, m.git, m.fs, m.log, repo.CloneURL, dest, ports.CloneOptions{Depth: req.Depth}); err != nil {
 				failures = append(failures, ItemError{Ref: spec.Ref + ": " + repo.Path, Err: err})
 			}
 		}

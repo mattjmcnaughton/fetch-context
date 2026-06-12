@@ -115,3 +115,21 @@ func TestAC_GROUP_06_OneBadRepoDoesNotAbortRest(t *testing.T) {
 		t.Error("partial directory left for beta")
 	}
 }
+
+func TestAC_GROUP_07_DepthZeroAppliesToEveryClone(t *testing.T) {
+	w := newWorkspace(t)
+	res := w.run("group", "--depth", "0", "github.com/deep-org")
+	if res.code != 0 {
+		t.Fatalf("exit = %d, stderr: %s", res.code, res.stderr)
+	}
+	deep := w.target("repos", "github.com", "deep-org", "deep")
+	hello := w.target("repos", "github.com", "deep-org", "hello")
+	for _, dest := range []string{deep, hello} {
+		if isShallow(t, dest) {
+			t.Errorf("%s is shallow, want full history", dest)
+		}
+	}
+	if got := strings.TrimSpace(mustGit(t, deep, "rev-list", "--count", "HEAD")); got != "3" {
+		t.Errorf("deep commit count = %s, want 3", got)
+	}
+}

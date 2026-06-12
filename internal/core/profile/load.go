@@ -79,7 +79,7 @@ func (l *Load) Run(ctx context.Context, name string) error {
 		}
 	}
 	if len(prof.Groups) > 0 {
-		if err := l.groups.Materialize(ctx, materialize.GroupRequest{Refs: prof.Groups, Target: target}); err != nil {
+		if err := l.groups.Materialize(ctx, materialize.GroupRequest{Refs: prof.Groups, Target: target, Depth: cfg.Clone.Depth, Parallel: cfg.Clone.Parallel}); err != nil {
 			errs = append(errs, fmt.Errorf("groups: %w", err))
 		}
 	}

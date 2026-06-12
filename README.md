@@ -58,7 +58,7 @@ fetch-context group gitlab.com/acme/platform
 - **GitHub** orgs are flat: every repo in the org is cloned.
 - **GitLab** groups are recursive: the group and all of its subgroups are walked, and the **subgroup path is preserved** in the layout — `gitlab.com/acme/platform/team/utils` clones to `sources/repos/gitlab.com/acme/platform/team/utils/`.
 - Enumeration hits the GitHub/GitLab REST APIs and follows pagination. Private repos and most group listings require a token — see [Authentication](#authentication).
-- Each resolved repo is then cloned with the same rules as `repo` (shallow, fetch-and-reset on re-run).
+- Each resolved repo is then cloned with the same rules as `repo` (shallow, fetch-and-reset on re-run). `--depth` (or the config's `clone.depth`) applies to every enumerated clone; group repos always track the remote default branch.
 
 ### `url`
 

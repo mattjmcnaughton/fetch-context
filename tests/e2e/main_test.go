@@ -92,6 +92,12 @@ func seedForge() {
 	forge.SeedGitHubOrg("big-org", []forgemock.Repo{
 		repo("big/pg1"), repo("big/pg2"), repo("big/pg3"), repo("big/pg4"), repo("big/pg5"),
 	})
+	// deep-org pairs a multi-commit repo with a single-commit one so depth
+	// assertions cover both (AC-GROUP-07).
+	forge.SeedGitHubOrg("deep-org", []forgemock.Repo{
+		{Path: "deep", CloneURL: fixture.CloneURL("fixture/deep")},
+		repo("fixture/hello"),
+	})
 	forge.RequireGitHubToken("private-org", privateToken)
 	forge.SeedGitHubOrg("private-org", []forgemock.Repo{repo("private/secret")})
 	forge.SeedGitLabGroup("acme", []forgemock.Repo{

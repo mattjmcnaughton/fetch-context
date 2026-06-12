@@ -44,7 +44,7 @@ func newGroupFixture() *groupFixture {
 
 func (f *groupFixture) run(t *testing.T, refs ...string) error {
 	t.Helper()
-	return f.uc.Materialize(context.Background(), GroupRequest{Refs: refs, Target: ".agentic/sources"})
+	return f.uc.Materialize(context.Background(), GroupRequest{Refs: refs, Target: ".agentic/sources", Depth: 1})
 }
 
 func TestGroupClonesEveryEnumeratedRepo(t *testing.T) {
@@ -163,5 +163,26 @@ func TestGroupExistingClonesAreRefreshed(t *testing.T) {
 	}
 	if len(f.git.Refreshes) != 1 || f.git.Refreshes[0].Dest != dest {
 		t.Errorf("Refreshes = %v, want [%s] (AC-GROUP-04)", f.git.Refreshes, dest)
+	}
+}
+
+func TestGroupDepthReachesEveryClone(t *testing.T) {
+	f := newGroupFixture()
+	f.github.Repos["my-org"] = []ports.GroupRepo{
+		{Path: "alpha", CloneURL: "https://github.com/my-org/alpha.git"},
+		{Path: "beta", CloneURL: "https://github.com/my-org/beta.git"},
+	}
+	if err := f.uc.Materialize(context.Background(), GroupRequest{
+		Refs: []string{"github.com/my-org"}, Target: ".agentic/sources", Depth: 0,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.git.Clones) == 0 {
+		t.Fatal("no clones recorded")
+	}
+	for _, c := range f.git.Clones {
+		if c.Options != (ports.CloneOptions{Depth: 0}) {
+			t.Errorf("clone %s options = %+v, want depth 0, no branch", c.URL, c.Options)
+		}
 	}
 }

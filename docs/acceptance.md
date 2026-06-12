@@ -278,6 +278,15 @@ install criterion — building is a harness step, not a behavior under test.
   stderr names `beta` as failed with its reason; no partial directory for
   `beta` is left behind.
 
+**AC-GROUP-07 — `--depth 0` applies to every enumerated clone**
+- Given: mock forge enumerates `$GH_ORG`, whose repos include one with more
+  than one commit.
+- When: `fetch-context group --depth 0 $GH_ORG`.
+- Then: exit `0`; every cloned repo has full history (`is_shallow` false);
+  the multi-commit repo's `git rev-list --count HEAD` equals its remote
+  commit count. (Group repos always track the remote default branch — only
+  depth is configurable for groups.)
+
 ---
 
 ## 6. `url`
