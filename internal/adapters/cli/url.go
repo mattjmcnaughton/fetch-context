@@ -16,9 +16,13 @@ func newURLCmd(deps Deps) *cobra.Command {
 			"secrets (tokens, signed URLs, session IDs).",
 		Args: usageArgs(cobra.MinimumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			target, err := deps.target()
+			if err != nil {
+				return err
+			}
 			return deps.URL.Materialize(cmd.Context(), materialize.URLRequest{
 				URLs:   args,
-				Target: deps.Target,
+				Target: target,
 			})
 		},
 	}

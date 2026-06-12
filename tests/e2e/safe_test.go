@@ -52,6 +52,27 @@ func TestAC_SAFE_03_URLMarkdownOverwrittenOnRefetch(t *testing.T) {
 	}
 }
 
+// AC-SAFE-04 is the conflict-behavior view of AC-CLEAN-04: clean is
+// target-scoped and never deletes outside the resolved target.
+func TestAC_SAFE_04_CleanIsTargetScoped(t *testing.T) {
+	w := newWorkspace(t)
+	writeFile(t, w.path("keep.txt"), "precious")
+	if res := w.run("repo", fixture.CloneURL("fixture/hello")); res.code != 0 {
+		t.Fatalf("repo: exit = %d, stderr: %s", res.code, res.stderr)
+	}
+
+	res := w.run("clean")
+	if res.code != 0 {
+		t.Fatalf("clean: exit = %d, stderr: %s", res.code, res.stderr)
+	}
+	if !exists(w.path("keep.txt")) {
+		t.Error("clean removed a path outside its target tree")
+	}
+	if exists(w.target()) {
+		t.Error("target tree not removed")
+	}
+}
+
 // AC-SAFE-02 is the conflict-behavior view of AC-REPO-08: an unmanaged
 // directory is never clobbered.
 func TestAC_SAFE_02_UnmanagedDirectoryNeverClobbered(t *testing.T) {

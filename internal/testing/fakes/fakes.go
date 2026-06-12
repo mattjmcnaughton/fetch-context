@@ -184,6 +184,50 @@ func (p *FakePageReader) Fetch(_ context.Context, url string) ([]byte, error) {
 	return p.Default, nil
 }
 
+// FakeConfigStore implements ports.ConfigStore.
+type FakeConfigStore struct {
+	Cfg     ports.Config
+	LoadErr error
+	PathVal string
+}
+
+func NewConfigStore() *FakeConfigStore {
+	return &FakeConfigStore{
+		Cfg:     ports.Config{Target: ".agentic/sources", Profiles: map[string]ports.Profile{}},
+		PathVal: "/home/u/.config/fetch-context/config.yaml",
+	}
+}
+
+func (s *FakeConfigStore) Load() (ports.Config, error) {
+	if s.LoadErr != nil {
+		return ports.Config{}, s.LoadErr
+	}
+	return s.Cfg, nil
+}
+
+func (s *FakeConfigStore) Path() string { return s.PathVal }
+
+// FakeEditor implements ports.Editor.
+type FakeEditor struct {
+	// Edited records the paths opened.
+	Edited []string
+	// OnEdit, when set, simulates the user's edit (e.g. rewriting the
+	// config in a linked FakeConfigStore).
+	OnEdit func(path string) error
+	Err    error
+}
+
+func (e *FakeEditor) Edit(_ context.Context, path string) error {
+	e.Edited = append(e.Edited, path)
+	if e.Err != nil {
+		return e.Err
+	}
+	if e.OnEdit != nil {
+		return e.OnEdit(path)
+	}
+	return nil
+}
+
 // Interface conformance.
 var (
 	_ ports.GitRepo         = (*FakeGitRepo)(nil)
@@ -191,4 +235,6 @@ var (
 	_ ports.FileStore       = (*FakeFileStore)(nil)
 	_ ports.PageReader      = (*FakePageReader)(nil)
 	_ ports.ForgeEnumerator = (*FakeForgeEnumerator)(nil)
+	_ ports.ConfigStore     = (*FakeConfigStore)(nil)
+	_ ports.Editor          = (*FakeEditor)(nil)
 )

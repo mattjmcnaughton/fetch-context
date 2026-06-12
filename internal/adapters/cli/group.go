@@ -16,9 +16,13 @@ func newGroupCmd(deps Deps) *cobra.Command {
 			"GITHUB_TOKEN / GITLAB_TOKEN.",
 		Args: usageArgs(cobra.MinimumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			target, err := deps.target()
+			if err != nil {
+				return err
+			}
 			return deps.Group.Materialize(cmd.Context(), materialize.GroupRequest{
 				Refs:   args,
-				Target: deps.Target,
+				Target: target,
 			})
 		},
 	}

@@ -97,6 +97,36 @@ func (w *workspace) target(parts ...string) string {
 	return filepath.Join(append([]string{w.dir, ".agentic", "sources"}, parts...)...)
 }
 
+// writeConfig writes the config file under this workspace's
+// FETCH_CONTEXT_HOME and returns its path.
+func (w *workspace) writeConfig(t *testing.T, yaml string) string {
+	t.Helper()
+	path := filepath.Join(w.home, ".config", "fetch-context", "config.yaml")
+	writeFile(t, path, yaml)
+	return path
+}
+
+// configPath is where the binary must look for config in this workspace.
+func (w *workspace) configPath() string {
+	return filepath.Join(w.home, ".config", "fetch-context", "config.yaml")
+}
+
+// editorScript writes an executable shell script (body sees the edited file
+// as "$1") and returns its path.
+func editorScript(t *testing.T, body string) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "fc-editor-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	path := filepath.Join(dir, "editor.sh")
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
 // mustGit runs git in dir and fails the test on error.
 func mustGit(t *testing.T, dir string, args ...string) string {
 	t.Helper()
@@ -129,4 +159,9 @@ func writeFile(t *testing.T, path, content string) {
 func exists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+// joinPath joins parts beneath root.
+func joinPath(root string, parts ...string) string {
+	return filepath.Join(append([]string{root}, parts...)...)
 }

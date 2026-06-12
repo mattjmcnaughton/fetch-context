@@ -9,17 +9,37 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/mattjmcnaughton/fetch-context/internal/core/clean"
+	"github.com/mattjmcnaughton/fetch-context/internal/core/editconfig"
+	"github.com/mattjmcnaughton/fetch-context/internal/core/list"
 	"github.com/mattjmcnaughton/fetch-context/internal/core/materialize"
+	"github.com/mattjmcnaughton/fetch-context/internal/core/profile"
 	"github.com/mattjmcnaughton/fetch-context/internal/core/usageerr"
+	"github.com/mattjmcnaughton/fetch-context/internal/ports"
 )
 
-// Deps holds the use cases (and the resolved global target) the wiring
-// injects into the CLI.
+// Deps holds the use cases the wiring injects into the CLI, plus a lazy
+// config accessor: commands that need the resolved target load the config
+// on demand, so a malformed config fails exactly the commands that depend
+// on it (and `version`/usage never touch it).
 type Deps struct {
 	Repo   *materialize.Repo
 	Group  *materialize.Group
 	URL    *materialize.URL
-	Target string
+	Load   *profile.Load
+	List   *list.List
+	Clean  *clean.Clean
+	Edit   *editconfig.Edit
+	Config func() (ports.Config, error)
+}
+
+// target resolves the global target from config.
+func (d Deps) target() (string, error) {
+	cfg, err := d.Config()
+	if err != nil {
+		return "", err
+	}
+	return cfg.Target, nil
 }
 
 func NewRoot(deps Deps) *cobra.Command {
@@ -65,6 +85,10 @@ func NewRoot(deps Deps) *cobra.Command {
 		newRepoCmd(deps),
 		newGroupCmd(deps),
 		newURLCmd(deps),
+		newLoadCmd(deps),
+		newListCmd(deps),
+		newCleanCmd(deps),
+		newEditCmd(deps),
 	)
 
 	return root

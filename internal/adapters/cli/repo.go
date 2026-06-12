@@ -15,9 +15,13 @@ func newRepoCmd(deps Deps) *cobra.Command {
 			"Existing managed clones are fetched and hard-reset to the remote's latest.",
 		Args: usageArgs(cobra.MinimumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			target, err := deps.target()
+			if err != nil {
+				return err
+			}
 			return deps.Repo.Materialize(cmd.Context(), materialize.RepoRequest{
 				Refs:   args,
-				Target: deps.Target,
+				Target: target,
 			})
 		},
 	}

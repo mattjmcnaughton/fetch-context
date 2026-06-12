@@ -3,8 +3,55 @@
 package e2e
 
 import (
+	"os"
+	"strings"
 	"testing"
 )
+
+func TestAC_CONFIG_01_PathHonorsFetchContextHome(t *testing.T) {
+	w := newWorkspace(t)
+	script := editorScript(t, `printf '# touched-by-test\n' > "$1"`)
+	w.setEnv("EDITOR=" + script)
+
+	res := w.run("edit")
+	if res.code != 0 {
+		t.Fatalf("exit = %d, stderr: %s", res.code, res.stderr)
+	}
+	b, err := os.ReadFile(w.configPath())
+	if err != nil {
+		t.Fatalf("config not at $FETCH_CONTEXT_HOME/.config/fetch-context/config.yaml: %v", err)
+	}
+	if !strings.Contains(string(b), "touched-by-test") {
+		t.Errorf("file at the sandboxed path was not the one edited: %q", b)
+	}
+}
+
+func TestAC_CONFIG_02_GlobalTargetOverrideHonored(t *testing.T) {
+	w := newWorkspace(t)
+	w.writeConfig(t, "target: .agentic/ctx\n")
+	res := w.run("repo", fixture.CloneURL("fixture/hello"))
+	if res.code != 0 {
+		t.Fatalf("exit = %d, stderr: %s", res.code, res.stderr)
+	}
+	if !isGit(w.path(".agentic", "ctx", "repos", fixture.Host(), "fixture", "hello")) {
+		t.Error("clone not under the overridden global target")
+	}
+	if exists(w.target()) {
+		t.Error("default target was used despite the override")
+	}
+}
+
+func TestAC_CONFIG_03_MalformedConfigErrorsClearly(t *testing.T) {
+	w := newWorkspace(t)
+	w.writeConfig(t, "profiles:\n  backend: [unclosed\n")
+	res := w.run("list")
+	if res.code == 0 {
+		t.Fatal("exit = 0, want non-zero for malformed config")
+	}
+	if !strings.Contains(res.stderr, "yaml") && !strings.Contains(res.stderr, "pars") {
+		t.Errorf("stderr does not identify the parse error:\n%s", res.stderr)
+	}
+}
 
 func TestAC_CONFIG_04_MissingConfigNotFatalForOneOffs(t *testing.T) {
 	w := newWorkspace(t) // fresh FETCH_CONTEXT_HOME: no config file exists
