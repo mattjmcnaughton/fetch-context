@@ -136,6 +136,40 @@ func (s *Server) Commit(name string, files map[string]string) error {
 	return commitAndPush(work, bare, files)
 }
 
+// CommitOnBranch adds (or updates) files in an existing repo with a new
+// commit on the named branch, creating the branch from the repo's current
+// default tip when absent — so tests can exercise branch-pinned clones.
+func (s *Server) CommitOnBranch(name, branch string, files map[string]string) error {
+	work, err := os.MkdirTemp("", "gitfixture-work-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(work)
+	bare := filepath.Join(s.root, name+".git")
+	if err := runGit(work, "clone", "-q", bare, "."); err != nil {
+		return err
+	}
+	if err := runGit(work, "checkout", "-q", "-B", branch); err != nil {
+		return err
+	}
+	for rel, content := range files {
+		path := filepath.Join(work, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			return err
+		}
+	}
+	if err := runGit(work, "add", "-A"); err != nil {
+		return err
+	}
+	if err := runGit(work, "commit", "-q", "-m", "fixture commit", "--allow-empty"); err != nil {
+		return err
+	}
+	return runGit(work, "push", "-q", bare, branch+":"+branch)
+}
+
 // seed builds the bare repo at root/<name>.git from a throwaway worktree.
 func (s *Server) seed(name string, files map[string]string) error {
 	bare := filepath.Join(s.root, name+".git")

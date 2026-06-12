@@ -161,7 +161,7 @@ func TestGroupExistingClonesAreRefreshed(t *testing.T) {
 	if err := f.run(t, "github.com/my-org"); err != nil {
 		t.Fatal(err)
 	}
-	if len(f.git.Refreshes) != 1 || f.git.Refreshes[0] != dest {
+	if len(f.git.Refreshes) != 1 || f.git.Refreshes[0].Dest != dest {
 		t.Errorf("Refreshes = %v, want [%s] (AC-GROUP-04)", f.git.Refreshes, dest)
 	}
 }

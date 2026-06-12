@@ -15,15 +15,22 @@ import (
 
 // CloneCall records one GitRepo.Clone invocation.
 type CloneCall struct {
-	URL  string
-	Dest string
+	URL     string
+	Dest    string
+	Options ports.CloneOptions
+}
+
+// RefreshCall records one GitRepo.Refresh invocation.
+type RefreshCall struct {
+	Dest    string
+	Options ports.CloneOptions
 }
 
 // FakeGitRepo implements ports.GitRepo.
 type FakeGitRepo struct {
 	// Clones and Refreshes record successful-or-not invocations in order.
 	Clones    []CloneCall
-	Refreshes []string
+	Refreshes []RefreshCall
 	// ManagedDirs answers IsManagedClone per dest.
 	ManagedDirs map[string]bool
 	// CloneErrs scripts Clone failures by clone URL.
@@ -43,8 +50,8 @@ func NewGitRepo() *FakeGitRepo {
 	}
 }
 
-func (g *FakeGitRepo) Clone(_ context.Context, cloneURL, dest string) error {
-	g.Clones = append(g.Clones, CloneCall{URL: cloneURL, Dest: dest})
+func (g *FakeGitRepo) Clone(_ context.Context, cloneURL, dest string, opts ports.CloneOptions) error {
+	g.Clones = append(g.Clones, CloneCall{URL: cloneURL, Dest: dest, Options: opts})
 	if err := g.CloneErrs[cloneURL]; err != nil {
 		return err
 	}
@@ -58,8 +65,8 @@ func (g *FakeGitRepo) Clone(_ context.Context, cloneURL, dest string) error {
 	return nil
 }
 
-func (g *FakeGitRepo) Refresh(_ context.Context, dest string) error {
-	g.Refreshes = append(g.Refreshes, dest)
+func (g *FakeGitRepo) Refresh(_ context.Context, dest string, opts ports.CloneOptions) error {
+	g.Refreshes = append(g.Refreshes, RefreshCall{Dest: dest, Options: opts})
 	return g.RefreshErrs[dest]
 }
 

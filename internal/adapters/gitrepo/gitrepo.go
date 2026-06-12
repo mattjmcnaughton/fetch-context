@@ -54,10 +54,11 @@ func New(log *slog.Logger, creds ...Credential) *Adapter {
 	return &Adapter{log: log, creds: creds}
 }
 
-// Clone shallow-clones cloneURL into dest. A failed clone leaves no partial
-// directory (AC-REPO-09); auth failures are retried with each configured
-// credential and surfaced explicitly when they stick (AC-AUTH-03).
-func (a *Adapter) Clone(ctx context.Context, cloneURL, dest string) error {
+// Clone clones cloneURL into dest honoring opts (depth, branch). A failed
+// clone leaves no partial directory (AC-REPO-09); auth failures are retried
+// with each configured credential and surfaced explicitly when they stick
+// (AC-AUTH-03).
+func (a *Adapter) Clone(ctx context.Context, cloneURL, dest string, opts ports.CloneOptions) error {
 	preExisted := pathExists(dest)
 	cleanup := func() {
 		if !preExisted {
@@ -65,7 +66,16 @@ func (a *Adapter) Clone(ctx context.Context, cloneURL, dest string) error {
 		}
 	}
 
-	stderr, err := a.git(ctx, nil, "clone", "-q", "--depth=1", cloneURL, dest)
+	args := []string{"clone", "-q"}
+	if opts.Depth > 0 {
+		args = append(args, fmt.Sprintf("--depth=%d", opts.Depth))
+	}
+	if opts.Branch != "" {
+		args = append(args, "--branch="+opts.Branch)
+	}
+	args = append(args, cloneURL, dest)
+
+	stderr, err := a.git(ctx, nil, args...)
 	if err == nil {
 		return nil
 	}
@@ -73,7 +83,7 @@ func (a *Adapter) Clone(ctx context.Context, cloneURL, dest string) error {
 		for _, cred := range a.creds {
 			cleanup()
 			a.log.Debug("retrying clone with credential", "url", cloneURL, "kind", cred.Kind)
-			retryStderr, retryErr := a.git(ctx, &cred, "clone", "-q", "--depth=1", cloneURL, dest)
+			retryStderr, retryErr := a.git(ctx, &cred, args...)
 			if retryErr == nil {
 				return nil
 			}
@@ -89,24 +99,50 @@ func (a *Adapter) Clone(ctx context.Context, cloneURL, dest string) error {
 }
 
 // Refresh discards local state in a managed clone and resets it to the
-// remote's latest on the checked-out branch (AC-REPO-07).
-func (a *Adapter) Refresh(ctx context.Context, dest string) error {
+// remote's latest (AC-REPO-07), converging the clone toward opts: depth N
+// keeps (or re-trims) the history at N, depth 0 unshallows, and a pinned
+// branch different from the checked-out one is switched to.
+func (a *Adapter) Refresh(ctx context.Context, dest string, opts ports.CloneOptions) error {
 	branchOut, err := a.gitIn(ctx, dest, "symbolic-ref", "--short", "HEAD")
 	if err != nil {
 		return fmt.Errorf("resolving branch of %s: %s", dest, summarize(branchOut))
 	}
-	branch := strings.TrimSpace(branchOut)
+	current := strings.TrimSpace(branchOut)
+	branch := opts.Branch
+	if branch == "" {
+		branch = current
+	}
 
-	if stderr, err := a.gitAuthRetry(ctx, dest, "fetch", "-q", "--depth=1", "origin", branch); err != nil {
+	fetch := []string{"fetch", "-q"}
+	if opts.Depth > 0 {
+		fetch = append(fetch, fmt.Sprintf("--depth=%d", opts.Depth))
+	} else if a.isShallow(ctx, dest) {
+		// `--unshallow` errors on an already-full clone, so it is applied
+		// only when converging a shallow clone to full history.
+		fetch = append(fetch, "--unshallow")
+	}
+	fetch = append(fetch, "origin", branch)
+	if stderr, err := a.gitAuthRetry(ctx, dest, fetch...); err != nil {
 		return fmt.Errorf("fetching %s: %s", dest, summarize(stderr))
 	}
 	if out, err := a.gitIn(ctx, dest, "reset", "-q", "--hard", "FETCH_HEAD"); err != nil {
 		return fmt.Errorf("resetting %s: %s", dest, summarize(out))
 	}
+	if branch != current {
+		if out, err := a.gitIn(ctx, dest, "checkout", "-q", "-B", branch); err != nil {
+			return fmt.Errorf("switching %s to branch %s: %s", dest, branch, summarize(out))
+		}
+	}
 	if out, err := a.gitIn(ctx, dest, "clean", "-q", "-fdx"); err != nil {
 		return fmt.Errorf("cleaning %s: %s", dest, summarize(out))
 	}
 	return nil
+}
+
+// isShallow reports whether the clone at dest has truncated history.
+func (a *Adapter) isShallow(ctx context.Context, dest string) bool {
+	out, err := a.gitIn(ctx, dest, "rev-parse", "--is-shallow-repository")
+	return err == nil && strings.TrimSpace(out) == "true"
 }
 
 // IsManagedClone reports whether dest is itself a working-tree root

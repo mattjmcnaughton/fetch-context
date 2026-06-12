@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mattjmcnaughton/fetch-context/internal/ports"
 	"github.com/mattjmcnaughton/fetch-context/internal/testing/fakes"
 )
 
@@ -40,7 +41,7 @@ func TestRepoClonesToDerivedPath(t *testing.T) {
 	if err := f.run(t, "github.com/foo/bar"); err != nil {
 		t.Fatal(err)
 	}
-	want := fakes.CloneCall{URL: "https://github.com/foo/bar.git", Dest: "/ws/.agentic/sources/repos/github.com/foo/bar"}
+	want := fakes.CloneCall{URL: "https://github.com/foo/bar.git", Dest: "/ws/.agentic/sources/repos/github.com/foo/bar", Options: ports.CloneOptions{Depth: 1}}
 	if len(f.git.Clones) != 1 || f.git.Clones[0] != want {
 		t.Errorf("Clones = %+v, want [%+v]", f.git.Clones, want)
 	}
@@ -60,7 +61,7 @@ func TestRepoExistingManagedCloneIsRefreshed(t *testing.T) {
 	if len(f.git.Clones) != 0 {
 		t.Errorf("Clones = %+v, want none", f.git.Clones)
 	}
-	if len(f.git.Refreshes) != 1 || f.git.Refreshes[0] != dest {
+	if len(f.git.Refreshes) != 1 || f.git.Refreshes[0].Dest != dest {
 		t.Errorf("Refreshes = %+v, want [%s]", f.git.Refreshes, dest)
 	}
 }

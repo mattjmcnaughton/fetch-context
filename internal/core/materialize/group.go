@@ -76,7 +76,7 @@ func (m *Group) Materialize(ctx context.Context, req GroupRequest) error {
 		}
 		for _, repo := range repos {
 			dest := targetpath.GroupRepoDir(targetAbs, spec, repo.Path)
-			if err := cloneOrRefresh(ctx, m.git, m.fs, m.log, repo.CloneURL, dest); err != nil {
+			if err := cloneOrRefresh(ctx, m.git, m.fs, m.log, repo.CloneURL, dest, ports.CloneOptions{Depth: 1}); err != nil {
 				failures = append(failures, ItemError{Ref: spec.Ref + ": " + repo.Path, Err: err})
 			}
 		}

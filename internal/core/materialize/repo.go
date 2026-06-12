@@ -64,13 +64,14 @@ func (m *Repo) Materialize(ctx context.Context, req RepoRequest) error {
 // existing managed clone; an existing unmanaged path is refused untouched
 // (AC-REPO-07/08).
 func (m *Repo) materializeOne(ctx context.Context, spec repoid.Spec, targetAbs string) error {
-	return cloneOrRefresh(ctx, m.git, m.fs, m.log, spec.CloneURL(), targetpath.RepoDir(targetAbs, spec))
+	return cloneOrRefresh(ctx, m.git, m.fs, m.log, spec.CloneURL(), targetpath.RepoDir(targetAbs, spec), ports.CloneOptions{Depth: 1})
 }
 
 // cloneOrRefresh applies the shared destination rules: clone when absent,
-// refresh when a managed clone, refuse untouched otherwise. `group` repos
-// obey the same rules as `repo` (AC-GROUP-04).
-func cloneOrRefresh(ctx context.Context, git ports.GitRepo, fs ports.FileStore, log *slog.Logger, cloneURL, dest string) error {
+// refresh when a managed clone (converging it toward opts), refuse
+// untouched otherwise. `group` repos obey the same rules as `repo`
+// (AC-GROUP-04).
+func cloneOrRefresh(ctx context.Context, git ports.GitRepo, fs ports.FileStore, log *slog.Logger, cloneURL, dest string, opts ports.CloneOptions) error {
 	exists, err := fs.Exists(dest)
 	if err != nil {
 		return err
@@ -84,8 +85,8 @@ func cloneOrRefresh(ctx context.Context, git ports.GitRepo, fs ports.FileStore, 
 			return fmt.Errorf("destination %s exists and is not a managed clone; refusing to touch it", dest)
 		}
 		log.Debug("refreshing managed clone", "dest", dest)
-		return git.Refresh(ctx, dest)
+		return git.Refresh(ctx, dest, opts)
 	}
 	log.Debug("cloning", "url", cloneURL, "dest", dest)
-	return git.Clone(ctx, cloneURL, dest)
+	return git.Clone(ctx, cloneURL, dest, opts)
 }
