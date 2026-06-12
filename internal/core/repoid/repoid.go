@@ -38,12 +38,6 @@ func (s Spec) CloneURL() string {
 	return scheme + "://" + s.Key() + ".git"
 }
 
-// RefError records one reference that failed to parse.
-type RefError struct {
-	Ref string
-	Err error
-}
-
 // Parse normalizes one repo reference.
 func Parse(ref string) (Spec, error) {
 	trimmed := strings.TrimSpace(ref)
@@ -84,28 +78,6 @@ func Parse(ref string) (Spec, error) {
 		return Spec{}, err
 	}
 	return spec, nil
-}
-
-// ParseAll parses and dedupes a batch, preserving first-seen order.
-// Equivalent forms (R6) collapse to one Spec; unparsable refs are returned
-// as RefErrors so batch commands can continue on error (R3).
-func ParseAll(refs []string) ([]Spec, []RefError) {
-	var specs []Spec
-	var bad []RefError
-	seen := make(map[string]bool)
-	for _, ref := range refs {
-		spec, err := Parse(ref)
-		if err != nil {
-			bad = append(bad, RefError{Ref: ref, Err: err})
-			continue
-		}
-		if seen[spec.Key()] {
-			continue
-		}
-		seen[spec.Key()] = true
-		specs = append(specs, spec)
-	}
-	return specs, bad
 }
 
 // fillPath splits a URL path and assigns owner/repo.

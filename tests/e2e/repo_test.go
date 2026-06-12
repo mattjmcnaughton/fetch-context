@@ -208,3 +208,67 @@ func TestAC_REPO_11_EquivalentFormsCollapse(t *testing.T) {
 		t.Errorf("owner dir entries = %v, want exactly [hello]", names)
 	}
 }
+
+// deepDest is the derived destination for the three-commit deep fixture.
+func deepDest(w *workspace) string {
+	return w.target("repos", fixture.Host(), "fixture", "deep")
+}
+
+func TestAC_REPO_12_DepthZeroClonesFullHistory(t *testing.T) {
+	w := newWorkspace(t)
+	res := w.run("repo", "--depth", "0", fixture.CloneURL("fixture/deep"))
+	if res.code != 0 {
+		t.Fatalf("exit = %d, stderr: %s", res.code, res.stderr)
+	}
+	dest := deepDest(w)
+	if isShallow(t, dest) {
+		t.Error("clone is shallow, want full history")
+	}
+	if got := strings.TrimSpace(mustGit(t, dest, "rev-list", "--count", "HEAD")); got != "3" {
+		t.Errorf("commit count = %s, want 3 (the remote's full history)", got)
+	}
+}
+
+func TestAC_REPO_13_BranchClonesNamedBranch(t *testing.T) {
+	w := newWorkspace(t)
+	res := w.run("repo", "--branch", "develop", fixture.CloneURL("fixture/branchy"))
+	if res.code != 0 {
+		t.Fatalf("exit = %d, stderr: %s", res.code, res.stderr)
+	}
+	dest := w.target("repos", fixture.Host(), "fixture", "branchy")
+	if branch := strings.TrimSpace(mustGit(t, dest, "symbolic-ref", "--short", "HEAD")); branch != "develop" {
+		t.Errorf("checked-out branch = %q, want develop", branch)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dest, "MARKER")); string(b) != "develop\n" {
+		t.Errorf("MARKER = %q, want the branch's content", b)
+	}
+}
+
+func TestAC_REPO_14_RerunWithDepthZeroKeepsFullHistory(t *testing.T) {
+	w := newWorkspace(t)
+	url := fixture.CloneURL("fixture/deep-rerun")
+	if err := fixture.Seed("fixture/deep-rerun", map[string]string{"MARKER": "v1\n"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.Commit("fixture/deep-rerun", map[string]string{"MARKER": "v2\n"}); err != nil {
+		t.Fatal(err)
+	}
+	if res := w.run("repo", "--depth", "0", url); res.code != 0 {
+		t.Fatalf("first run: exit = %d, stderr: %s", res.code, res.stderr)
+	}
+	if err := fixture.Commit("fixture/deep-rerun", map[string]string{"MARKER": "v3\n"}); err != nil {
+		t.Fatal(err)
+	}
+
+	res := w.run("repo", "--depth", "0", url)
+	if res.code != 0 {
+		t.Fatalf("re-run: exit = %d, stderr: %s", res.code, res.stderr)
+	}
+	dest := w.target("repos", fixture.Host(), "fixture", "deep-rerun")
+	if isShallow(t, dest) {
+		t.Error("re-run re-shallowed the full-history clone")
+	}
+	if got := strings.TrimSpace(mustGit(t, dest, "rev-list", "--count", "HEAD")); got != "3" {
+		t.Errorf("commit count = %s, want 3 (remote latest with full history)", got)
+	}
+}

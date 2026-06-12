@@ -33,7 +33,7 @@ func newRepoFixture() *repoFixture {
 
 func (f *repoFixture) run(t *testing.T, refs ...string) error {
 	t.Helper()
-	return f.uc.Materialize(context.Background(), RepoRequest{Refs: refs, Target: ".agentic/sources"})
+	return f.uc.Materialize(context.Background(), RepoRequest{Items: ItemsFromRefs(refs, 1, ""), Target: ".agentic/sources"})
 }
 
 func TestRepoClonesToDerivedPath(t *testing.T) {
@@ -179,5 +179,68 @@ func TestRepoCloneFailureForOneItemStillExitsNonNil(t *testing.T) {
 	}
 	if len(batch.Items) != 1 || batch.Items[0].Ref != "foo/bad" {
 		t.Errorf("batch items = %+v", batch.Items)
+	}
+}
+
+func TestRepoPerItemOptionsReachClone(t *testing.T) {
+	f := newRepoFixture()
+	err := f.uc.Materialize(context.Background(), RepoRequest{
+		Items: []RepoItem{
+			{Ref: "foo/full", Depth: 0, Branch: "develop"},
+			{Ref: "foo/shallow", Depth: 3},
+		},
+		Target: ".agentic/sources",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.git.Clones) != 2 {
+		t.Fatalf("Clones = %+v, want 2", f.git.Clones)
+	}
+	if got := f.git.Clones[0].Options; got != (ports.CloneOptions{Depth: 0, Branch: "develop"}) {
+		t.Errorf("first clone options = %+v, want full history on develop", got)
+	}
+	if got := f.git.Clones[1].Options; got != (ports.CloneOptions{Depth: 3}) {
+		t.Errorf("second clone options = %+v, want depth 3", got)
+	}
+}
+
+func TestRepoDedupKeepsFirstOccurrenceOptions(t *testing.T) {
+	f := newRepoFixture()
+	err := f.uc.Materialize(context.Background(), RepoRequest{
+		Items: []RepoItem{
+			{Ref: "foo/bar", Depth: 0},
+			{Ref: "https://github.com/foo/bar.git", Depth: 5, Branch: "other"},
+		},
+		Target: ".agentic/sources",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.git.Clones) != 1 {
+		t.Fatalf("Clones = %+v, want one (AC-REPO-11)", f.git.Clones)
+	}
+	if got := f.git.Clones[0].Options; got != (ports.CloneOptions{Depth: 0}) {
+		t.Errorf("clone options = %+v, want the first occurrence's (depth 0)", got)
+	}
+}
+
+func TestRepoRefreshReceivesOptions(t *testing.T) {
+	f := newRepoFixture()
+	dest := "/ws/.agentic/sources/repos/github.com/foo/bar"
+	if err := f.fs.MkdirAll(dest); err != nil {
+		t.Fatal(err)
+	}
+	f.git.ManagedDirs[dest] = true
+
+	err := f.uc.Materialize(context.Background(), RepoRequest{
+		Items:  []RepoItem{{Ref: "foo/bar", Depth: 0, Branch: "develop"}},
+		Target: ".agentic/sources",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.git.Refreshes) != 1 || f.git.Refreshes[0].Options != (ports.CloneOptions{Depth: 0, Branch: "develop"}) {
+		t.Errorf("Refreshes = %+v, want options converged on refresh", f.git.Refreshes)
 	}
 }

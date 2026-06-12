@@ -128,6 +128,24 @@ func seedFixture() error {
 			return err
 		}
 	}
+	// fixture/deep carries three commits on main so depth/full-history
+	// assertions have history to count (AC-REPO-12/14, AC-CONFIG-05).
+	if err := fixture.Seed("fixture/deep", map[string]string{"MARKER": "v1\n"}); err != nil {
+		return err
+	}
+	for _, v := range []string{"v2\n", "v3\n"} {
+		if err := fixture.Commit("fixture/deep", map[string]string{"MARKER": v}); err != nil {
+			return err
+		}
+	}
+	// fixture/branchy has a develop branch with distinct content
+	// (AC-REPO-13, AC-LOAD-07).
+	if err := fixture.Seed("fixture/branchy", map[string]string{"MARKER": "main\n"}); err != nil {
+		return err
+	}
+	if err := fixture.CommitOnBranch("fixture/branchy", "develop", map[string]string{"MARKER": "develop\n"}); err != nil {
+		return err
+	}
 	return fixture.SeedPrivate("private/secret", privateToken, map[string]string{"SECRET": "s\n"})
 }
 

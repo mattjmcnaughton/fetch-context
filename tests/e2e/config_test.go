@@ -63,3 +63,28 @@ func TestAC_CONFIG_04_MissingConfigNotFatalForOneOffs(t *testing.T) {
 		t.Error("default target was not used")
 	}
 }
+
+func TestAC_CONFIG_05_GlobalCloneDepthHonored(t *testing.T) {
+	w := newWorkspace(t)
+	w.writeConfig(t, "clone:\n  depth: 0\n")
+	res := w.run("repo", fixture.CloneURL("fixture/deep"))
+	if res.code != 0 {
+		t.Fatalf("exit = %d, stderr: %s", res.code, res.stderr)
+	}
+	dest := w.target("repos", fixture.Host(), "fixture", "deep")
+	if isShallow(t, dest) {
+		t.Error("clone is shallow despite clone.depth: 0 in config")
+	}
+}
+
+func TestAC_CONFIG_06_UnknownRepoEntryFieldErrors(t *testing.T) {
+	w := newWorkspace(t)
+	w.writeConfig(t, "profiles:\n  p:\n    repos:\n      - ref: a/b\n        brnch: oops\n")
+	res := w.run("list")
+	if res.code == 0 {
+		t.Fatal("unknown repo-entry field must fail loudly")
+	}
+	if !strings.Contains(res.stderr, "brnch") {
+		t.Errorf("stderr does not name the unknown field:\n%s", res.stderr)
+	}
+}

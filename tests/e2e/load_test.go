@@ -138,3 +138,36 @@ profiles:
 func (w *workspace) path(parts ...string) string {
 	return joinPath(w.dir, parts...)
 }
+
+func TestAC_LOAD_07_RepoEntryMappingFormHonored(t *testing.T) {
+	w := newWorkspace(t)
+	w.writeConfig(t, `
+profiles:
+  mixed:
+    repos:
+      - `+fixture.CloneURL("fixture/hello")+`
+      - ref: `+fixture.CloneURL("fixture/branchy")+`
+        depth: 0
+        branch: develop
+`)
+	res := w.run("load", "mixed")
+	if res.code != 0 {
+		t.Fatalf("exit = %d, stderr: %s", res.code, res.stderr)
+	}
+
+	hello := w.target("repos", fixture.Host(), "fixture", "hello")
+	if !isShallow(t, hello) {
+		t.Error("plain entry should stay shallow (global default)")
+	}
+	if branch := strings.TrimSpace(mustGit(t, hello, "symbolic-ref", "--short", "HEAD")); branch != "main" {
+		t.Errorf("plain entry branch = %q, want main", branch)
+	}
+
+	branchy := w.target("repos", fixture.Host(), "fixture", "branchy")
+	if isShallow(t, branchy) {
+		t.Error("mapping entry with depth 0 should have full history")
+	}
+	if branch := strings.TrimSpace(mustGit(t, branchy, "symbolic-ref", "--short", "HEAD")); branch != "develop" {
+		t.Errorf("mapping entry branch = %q, want develop", branch)
+	}
+}

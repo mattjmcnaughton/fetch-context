@@ -41,8 +41,9 @@ fetch-context repo github.com/redis/redis
 fetch-context repo github.com/foo/bar gitlab.com/acme/lib
 ```
 
-- Clones shallow (`--depth=1`) against the default branch.
-- If the destination already exists as a clone, it is `git fetch`ed and **hard-reset to the remote's latest** — local state in the clone is discarded by design.
+- Clones shallow (`--depth=1`) against the default branch by default.
+- `--depth N` controls history depth; `--depth 0` fetches **full history**. `--branch <name>` clones and tracks the named branch. The flags override the config's `clone:` section.
+- If the destination already exists as a clone, it is `git fetch`ed and **hard-reset to the remote's latest** — local state in the clone is discarded by design. The refresh **converges to the requested options**: a clone refreshed under `--depth 0` is unshallowed, one refreshed under `--depth N` is (re-)trimmed to N commits, and a pinned `--branch` different from the checked-out one is switched to.
 - Accepts a host-qualified path (`github.com/foo/bar`) or a full clone URL.
 
 ### `group`
@@ -127,13 +128,20 @@ Config lives at `~/.config/fetch-context/config.yaml` and holds the profile libr
 # Optional. Install target relative to the repo root. Defaults to .agentic/sources.
 target: .agentic/sources
 
+# Optional. Global clone defaults.
+clone:
+  depth: 1        # history depth for clones; 0 = full history (default 1)
+  parallel: 4     # max concurrent clones; 1 = sequential (default 4)
+
 profiles:
   backend:
     # Optional per-profile target override.
     target: .agentic/backend
     repos:
-      - github.com/redis/redis
-      - gitlab.com/acme/lib
+      - github.com/redis/redis      # plain ref: global clone defaults apply
+      - ref: gitlab.com/acme/lib    # mapping form: per-repo overrides
+        depth: 0                    # full history for this repo
+        branch: release-2.x         # pin a branch (default: remote default)
     groups:
       - github.com/my-org           # every repo in the org
       - gitlab.com/acme/platform    # group + all subgroups, recursively

@@ -42,7 +42,7 @@ func TestLoadMaterializesAllKeys(t *testing.T) {
 	if err := f.uc.Run(context.Background(), "backend"); err != nil {
 		t.Fatal(err)
 	}
-	if len(f.repos.Requests) != 1 || f.repos.Requests[0].Refs[0] != "github.com/redis/redis" {
+	if len(f.repos.Requests) != 1 || f.repos.Requests[0].Items[0].Ref != "github.com/redis/redis" {
 		t.Errorf("repo requests = %+v", f.repos.Requests)
 	}
 	if len(f.groups.Requests) != 1 || f.groups.Requests[0].Refs[0] != "github.com/my-org" {
@@ -120,5 +120,30 @@ func TestLoadConfigErrorSurfaces(t *testing.T) {
 	f.config.LoadErr = errors.New("parsing config: yaml: line 3")
 	if err := f.uc.Run(context.Background(), "backend"); err == nil {
 		t.Fatal("want config error surfaced")
+	}
+}
+
+func TestLoadResolvesPerEntryCloneOptions(t *testing.T) {
+	f := newLoadFixture()
+	full := 0
+	f.config.Cfg.Clone = ports.CloneDefaults{Depth: 2, Parallel: 3}
+	f.config.Cfg.Profiles["opts"] = ports.Profile{
+		Repos: []ports.RepoEntry{
+			{Ref: "a/inherit"},
+			{Ref: "a/full", Depth: &full, Branch: "develop"},
+		},
+	}
+	if err := f.uc.Run(context.Background(), "opts"); err != nil {
+		t.Fatal(err)
+	}
+	req := f.repos.Requests[0]
+	if req.Items[0] != (materialize.RepoItem{Ref: "a/inherit", Depth: 2}) {
+		t.Errorf("scalar entry = %+v, want global clone.depth inherited", req.Items[0])
+	}
+	if req.Items[1] != (materialize.RepoItem{Ref: "a/full", Depth: 0, Branch: "develop"}) {
+		t.Errorf("mapping entry = %+v, want its own depth/branch", req.Items[1])
+	}
+	if req.Parallel != 3 {
+		t.Errorf("Parallel = %d, want clone.parallel (3)", req.Parallel)
 	}
 }

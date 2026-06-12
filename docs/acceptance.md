@@ -221,6 +221,24 @@ install criterion — building is a harness step, not a behavior under test.
 - Then: exit `0`; exactly one clone lands at `repos/<host>/foo/bar/`; no
   sibling or duplicate destination is created.
 
+**AC-REPO-12 — `--depth 0` clones full history**
+- Given: a fixture repo with more than one commit.
+- When: `fetch-context repo --depth 0 $GH_REPO`.
+- Then: exit `0`; `is_shallow` on the clone is false; `git rev-list --count
+  HEAD` equals the remote's full commit count.
+
+**AC-REPO-13 — `--branch` clones the named branch**
+- Given: a fixture repo with a non-default branch carrying distinct content.
+- When: `fetch-context repo --branch <branch> $GH_REPO`.
+- Then: exit `0`; the checked-out branch is `<branch>`; the working tree has
+  the branch's content.
+
+**AC-REPO-14 — re-run with `--depth 0` keeps full history**
+- Given: a full-history clone (AC-REPO-12); the remote advances by one commit.
+- When: `fetch-context repo --depth 0 $GH_REPO` again.
+- Then: exit `0`; the clone holds the new commit; `is_shallow` is still false
+  (the refresh converges to the requested depth instead of re-shallowing).
+
 ---
 
 ## 5. `group`
@@ -344,6 +362,15 @@ install criterion — building is a harness step, not a behavior under test.
   stderr names the bad repo with its failure reason; no partial directory is
   left for the bad repo.
 
+**AC-LOAD-07 — repo entry mapping form honored**
+- Given: profile whose `repos` list mixes a plain ref string and a mapping
+  `{ref: …, depth: 0, branch: <branch>}` (a fixture repo with several commits
+  and a non-default branch).
+- When: `fetch-context load <profile>`.
+- Then: exit `0`; the plain entry is cloned shallow on the default branch;
+  the mapping entry's clone has full history and the named branch checked
+  out.
+
 ---
 
 ## 8. `list`
@@ -441,6 +468,18 @@ install criterion — building is a harness step, not a behavior under test.
 - Given: no config file exists.
 - When: `fetch-context repo $GH_REPO`.
 - Then: exit `0` (one-off commands need no config); default target is used.
+
+**AC-CONFIG-05 — global clone depth honored**
+- Given: config sets `clone: {depth: 0}`; a fixture repo with more than one
+  commit.
+- When: `fetch-context repo $GH_REPO` (no `--depth` flag).
+- Then: exit `0`; the clone has full history (`is_shallow` false).
+
+**AC-CONFIG-06 — unknown field in a repo entry mapping errors clearly**
+- Given: config with a profile repo entry `{ref: a/b, brnch: oops}`.
+- When: `fetch-context list`.
+- Then: exit non-zero; stderr names the unknown field and its line; no
+  partial action taken.
 
 ---
 

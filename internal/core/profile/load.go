@@ -65,11 +65,16 @@ func (l *Load) Run(ctx context.Context, name string) error {
 
 	var errs []error
 	if len(prof.Repos) > 0 {
-		refs := make([]string, 0, len(prof.Repos))
+		// Per-entry overrides win over the global clone defaults.
+		items := make([]materialize.RepoItem, 0, len(prof.Repos))
 		for _, entry := range prof.Repos {
-			refs = append(refs, entry.Ref)
+			depth := cfg.Clone.Depth
+			if entry.Depth != nil {
+				depth = *entry.Depth
+			}
+			items = append(items, materialize.RepoItem{Ref: entry.Ref, Depth: depth, Branch: entry.Branch})
 		}
-		if err := l.repos.Materialize(ctx, materialize.RepoRequest{Refs: refs, Target: target}); err != nil {
+		if err := l.repos.Materialize(ctx, materialize.RepoRequest{Items: items, Target: target, Parallel: cfg.Clone.Parallel}); err != nil {
 			errs = append(errs, fmt.Errorf("repos: %w", err))
 		}
 	}
