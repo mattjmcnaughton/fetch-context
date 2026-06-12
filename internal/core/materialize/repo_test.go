@@ -244,3 +244,28 @@ func TestRepoRefreshReceivesOptions(t *testing.T) {
 		t.Errorf("Refreshes = %+v, want options converged on refresh", f.git.Refreshes)
 	}
 }
+
+func TestRepoParallelFailuresStayInInputOrder(t *testing.T) {
+	f := newRepoFixture()
+	f.git.CloneErrs["https://github.com/foo/bad1.git"] = errors.New("boom1")
+	f.git.CloneErrs["https://github.com/foo/bad2.git"] = errors.New("boom2")
+
+	err := f.uc.Materialize(context.Background(), RepoRequest{
+		Items:    ItemsFromRefs([]string{"foo/bad1", "foo/a", "foo/bad2", "foo/b"}, 1, ""),
+		Target:   ".agentic/sources",
+		Parallel: 3,
+	})
+	if err == nil {
+		t.Fatal("want error")
+	}
+	var batch *BatchError
+	if !errors.As(err, &batch) {
+		t.Fatalf("err = %T, want *BatchError", err)
+	}
+	if len(batch.Items) != 2 || batch.Items[0].Ref != "foo/bad1" || batch.Items[1].Ref != "foo/bad2" {
+		t.Errorf("failures = %+v, want bad1 then bad2 (input order, regardless of scheduling)", batch.Items)
+	}
+	if len(f.git.Clones) != 4 {
+		t.Errorf("Clones = %d, want all four attempted (continue-on-error)", len(f.git.Clones))
+	}
+}

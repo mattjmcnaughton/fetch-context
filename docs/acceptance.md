@@ -287,6 +287,15 @@ install criterion — building is a harness step, not a behavior under test.
   commit count. (Group repos always track the remote default branch — only
   depth is configurable for groups.)
 
+**AC-GROUP-08 — parallel clones keep batch semantics**
+- Given: mock forge enumerates `{alpha, beta, gamma}` for `$GH_ORG`; the git
+  server fails clones of `beta`.
+- When: `fetch-context group --parallel 4 $GH_ORG`.
+- Then: exit `1`; `alpha` and `gamma` are fully cloned; stderr names `beta`
+  with its reason; no partial directory for `beta`. (Concurrency itself is
+  not observable from outside — the criterion is that bounded parallelism
+  preserves continue-on-error and the deterministic per-item summary.)
+
 ---
 
 ## 6. `url`
@@ -370,6 +379,12 @@ install criterion — building is a harness step, not a behavior under test.
 - Then: exit `1`; the good repo is cloned; the good URL's markdown is written;
   stderr names the bad repo with its failure reason; no partial directory is
   left for the bad repo.
+
+**AC-LOAD-08 — `--parallel` accepted and batch semantics kept**
+- Given: a profile with several repos entries.
+- When: `fetch-context load --parallel 4 <profile>`.
+- Then: exit `0`; every entry is materialized (smoke — the bound itself is
+  not externally observable). `--parallel 0` is a usage error (exit `2`).
 
 **AC-LOAD-07 — repo entry mapping form honored**
 - Given: profile whose `repos` list mixes a plain ref string and a mapping
@@ -489,6 +504,13 @@ install criterion — building is a harness step, not a behavior under test.
 - When: `fetch-context list`.
 - Then: exit non-zero; stderr names the unknown field and its line; no
   partial action taken.
+
+**AC-CONFIG-07 — clone.parallel validated and effective**
+- Given: config sets `clone: {parallel: 2}`.
+- When: `fetch-context group $GH_ORG`.
+- Then: exit `0`; every repo is cloned (a smoke check — the bound itself is
+  not externally observable). A config with `clone: {parallel: 0}` instead
+  fails loudly on any command that loads config.
 
 ---
 

@@ -45,13 +45,22 @@ func NewLoad(config ports.ConfigStore, repos RepoMaterializer, groups GroupMater
 	return &Load{config: config, repos: repos, groups: groups, urls: urls, log: log}
 }
 
+// Options tunes one load invocation; zero values mean "use config".
+type Options struct {
+	// Parallel overrides clone.parallel when > 0.
+	Parallel int
+}
+
 // Run materializes the named profile. Keys are attempted independently
 // (continue-on-error, R3/AC-LOAD-06); per-item detail from the underlying
 // batch errors is preserved.
-func (l *Load) Run(ctx context.Context, name string) error {
+func (l *Load) Run(ctx context.Context, name string, opts Options) error {
 	cfg, err := l.config.Load()
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
+	}
+	if opts.Parallel > 0 {
+		cfg.Clone.Parallel = opts.Parallel
 	}
 	prof, ok := cfg.Profiles[name]
 	if !ok {

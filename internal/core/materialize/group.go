@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/mattjmcnaughton/fetch-context/internal/core/parallel"
 	"github.com/mattjmcnaughton/fetch-context/internal/core/repoid"
 	"github.com/mattjmcnaughton/fetch-context/internal/core/targetpath"
 	"github.com/mattjmcnaughton/fetch-context/internal/core/usageerr"
@@ -79,10 +80,26 @@ func (m *Group) Materialize(ctx context.Context, req GroupRequest) error {
 			}
 			prepared = true
 		}
+		// Fan this spec's clones out (bounded, ADR-0002); enumeration and
+		// target prep stay sequential. Results come back in input order, so
+		// the failure summary is deterministic.
+		type cloneJob struct {
+			ref, url, dest string
+		}
+		jobs := make([]cloneJob, 0, len(repos))
 		for _, repo := range repos {
-			dest := targetpath.GroupRepoDir(targetAbs, spec, repo.Path)
-			if err := cloneOrRefresh(ctx, m.git, m.fs, m.log, repo.CloneURL, dest, ports.CloneOptions{Depth: req.Depth}); err != nil {
-				failures = append(failures, ItemError{Ref: spec.Ref + ": " + repo.Path, Err: err})
+			jobs = append(jobs, cloneJob{
+				ref:  spec.Ref + ": " + repo.Path,
+				url:  repo.CloneURL,
+				dest: targetpath.GroupRepoDir(targetAbs, spec, repo.Path),
+			})
+		}
+		results := parallel.Map(ctx, req.Parallel, jobs, func(ctx context.Context, j cloneJob) error {
+			return cloneOrRefresh(ctx, m.git, m.fs, m.log, j.url, j.dest, ports.CloneOptions{Depth: req.Depth})
+		})
+		for i, err := range results {
+			if err != nil {
+				failures = append(failures, ItemError{Ref: jobs[i].ref, Err: err})
 			}
 		}
 	}

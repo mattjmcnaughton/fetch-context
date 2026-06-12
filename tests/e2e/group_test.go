@@ -133,3 +133,26 @@ func TestAC_GROUP_07_DepthZeroAppliesToEveryClone(t *testing.T) {
 		t.Errorf("deep commit count = %s, want 3", got)
 	}
 }
+
+func TestAC_GROUP_08_ParallelClonesKeepBatchSemantics(t *testing.T) {
+	w := newWorkspace(t)
+	fixture.SetFailing("fixture/beta", true)
+	defer fixture.SetFailing("fixture/beta", false)
+
+	res := w.run("group", "--parallel", "4", "github.com/fixture-org")
+	if res.code != 1 {
+		t.Fatalf("exit = %d, want 1; stderr: %s", res.code, res.stderr)
+	}
+	orgDir := w.target("repos", "github.com", "fixture-org")
+	for _, name := range []string{"alpha", "gamma"} {
+		if !isGit(joinPath(orgDir, name)) {
+			t.Errorf("%s missing despite continue-on-error", name)
+		}
+	}
+	if !strings.Contains(res.stderr, "beta") {
+		t.Errorf("stderr does not name the failed repo:\n%s", res.stderr)
+	}
+	if exists(joinPath(orgDir, "beta")) {
+		t.Error("failed clone left a partial directory")
+	}
+}

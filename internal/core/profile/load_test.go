@@ -39,7 +39,7 @@ func newLoadFixture() *loadFixture {
 
 func TestLoadMaterializesAllKeys(t *testing.T) {
 	f := newLoadFixture()
-	if err := f.uc.Run(context.Background(), "backend"); err != nil {
+	if err := f.uc.Run(context.Background(), "backend", Options{}); err != nil {
 		t.Fatal(err)
 	}
 	if len(f.repos.Requests) != 1 || f.repos.Requests[0].Items[0].Ref != "github.com/redis/redis" {
@@ -63,7 +63,7 @@ func TestLoadPerProfileTargetOverride(t *testing.T) {
 		Target: ".agentic/backend",
 		Repos:  fakes.RepoEntries("a/b"),
 	}
-	if err := f.uc.Run(context.Background(), "backend"); err != nil {
+	if err := f.uc.Run(context.Background(), "backend", Options{}); err != nil {
 		t.Fatal(err)
 	}
 	if f.repos.Requests[0].Target != ".agentic/backend" {
@@ -73,7 +73,7 @@ func TestLoadPerProfileTargetOverride(t *testing.T) {
 
 func TestLoadUnknownProfileIsUsageError(t *testing.T) {
 	f := newLoadFixture()
-	err := f.uc.Run(context.Background(), "no-such-profile")
+	err := f.uc.Run(context.Background(), "no-such-profile", Options{})
 	if !usageerr.IsUsage(err) {
 		t.Fatalf("err = %v, want usage error (exit 2, AC-LOAD-04)", err)
 	}
@@ -89,7 +89,7 @@ func TestLoadContinuesAcrossKeysOnError(t *testing.T) {
 	f := newLoadFixture()
 	f.repos.Err = errors.New("1 item(s) failed:\n  bad/repo: clone failed")
 
-	err := f.uc.Run(context.Background(), "backend")
+	err := f.uc.Run(context.Background(), "backend", Options{})
 	if err == nil {
 		t.Fatal("want error when a key fails (R3, AC-LOAD-06)")
 	}
@@ -104,7 +104,7 @@ func TestLoadContinuesAcrossKeysOnError(t *testing.T) {
 func TestLoadSkipsEmptyKeys(t *testing.T) {
 	f := newLoadFixture()
 	f.config.Cfg.Profiles["urls-only"] = ports.Profile{URLs: []string{"https://e.test/x"}}
-	if err := f.uc.Run(context.Background(), "urls-only"); err != nil {
+	if err := f.uc.Run(context.Background(), "urls-only", Options{}); err != nil {
 		t.Fatal(err)
 	}
 	if len(f.repos.Requests) != 0 || len(f.groups.Requests) != 0 {
@@ -118,7 +118,7 @@ func TestLoadSkipsEmptyKeys(t *testing.T) {
 func TestLoadConfigErrorSurfaces(t *testing.T) {
 	f := newLoadFixture()
 	f.config.LoadErr = errors.New("parsing config: yaml: line 3")
-	if err := f.uc.Run(context.Background(), "backend"); err == nil {
+	if err := f.uc.Run(context.Background(), "backend", Options{}); err == nil {
 		t.Fatal("want config error surfaced")
 	}
 }
@@ -133,7 +133,7 @@ func TestLoadResolvesPerEntryCloneOptions(t *testing.T) {
 			{Ref: "a/full", Depth: &full, Branch: "develop"},
 		},
 	}
-	if err := f.uc.Run(context.Background(), "opts"); err != nil {
+	if err := f.uc.Run(context.Background(), "opts", Options{}); err != nil {
 		t.Fatal(err)
 	}
 	req := f.repos.Requests[0]
@@ -145,5 +145,18 @@ func TestLoadResolvesPerEntryCloneOptions(t *testing.T) {
 	}
 	if req.Parallel != 3 {
 		t.Errorf("Parallel = %d, want clone.parallel (3)", req.Parallel)
+	}
+}
+
+func TestLoadParallelOptionOverridesConfig(t *testing.T) {
+	f := newLoadFixture()
+	if err := f.uc.Run(context.Background(), "backend", Options{Parallel: 9}); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.repos.Requests[0].Parallel; got != 9 {
+		t.Errorf("repo Parallel = %d, want the --parallel override (9)", got)
+	}
+	if got := f.groups.Requests[0].Parallel; got != 9 {
+		t.Errorf("group Parallel = %d, want the --parallel override (9)", got)
 	}
 }

@@ -59,6 +59,7 @@ fetch-context group gitlab.com/acme/platform
 - **GitLab** groups are recursive: the group and all of its subgroups are walked, and the **subgroup path is preserved** in the layout — `gitlab.com/acme/platform/team/utils` clones to `sources/repos/gitlab.com/acme/platform/team/utils/`.
 - Enumeration hits the GitHub/GitLab REST APIs and follows pagination. Private repos and most group listings require a token — see [Authentication](#authentication).
 - Each resolved repo is then cloned with the same rules as `repo` (shallow, fetch-and-reset on re-run). `--depth` (or the config's `clone.depth`) applies to every enumerated clone; group repos always track the remote default branch.
+- Clones run concurrently, bounded by `--parallel` / `clone.parallel` (default 4; `1` is fully sequential). Failures are still reported per repo, in a deterministic order.
 
 ### `url`
 
@@ -80,7 +81,7 @@ Materialize a named profile: every `repos`, `groups`, and `urls` entry it declar
 fetch-context load backend
 ```
 
-You always name the profile — there is no implicit or auto-loaded profile.
+You always name the profile — there is no implicit or auto-loaded profile. `--parallel N` caps concurrent clones for the run (overrides the config's `clone.parallel`).
 
 ### `list`
 

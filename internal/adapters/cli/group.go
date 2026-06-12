@@ -8,7 +8,7 @@ import (
 )
 
 func newGroupCmd(deps Deps) *cobra.Command {
-	var depth int
+	var depth, parallel int
 	cmd := &cobra.Command{
 		Use:   "group <host>/<org-or-group>...",
 		Short: "Clone every repo under a GitHub org or GitLab group",
@@ -30,14 +30,22 @@ func newGroupCmd(deps Deps) *cobra.Command {
 				}
 				d = depth
 			}
+			p := cfg.Clone.Parallel
+			if cmd.Flags().Changed("parallel") {
+				if parallel < 1 {
+					return usageerr.Newf("--parallel must be >= 1, got %d", parallel)
+				}
+				p = parallel
+			}
 			return deps.Group.Materialize(cmd.Context(), materialize.GroupRequest{
 				Refs:     args,
 				Target:   cfg.Target,
 				Depth:    d,
-				Parallel: cfg.Clone.Parallel,
+				Parallel: p,
 			})
 		},
 	}
 	cmd.Flags().IntVar(&depth, "depth", 1, "history depth; 0 = full history (overrides config clone.depth)")
+	cmd.Flags().IntVar(&parallel, "parallel", 4, "max concurrent clones (overrides config clone.parallel)")
 	return cmd
 }

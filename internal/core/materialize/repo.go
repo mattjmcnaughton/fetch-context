@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/mattjmcnaughton/fetch-context/internal/core/parallel"
 	"github.com/mattjmcnaughton/fetch-context/internal/core/repoid"
 	"github.com/mattjmcnaughton/fetch-context/internal/core/targetpath"
 	"github.com/mattjmcnaughton/fetch-context/internal/ports"
@@ -89,10 +90,18 @@ func (m *Repo) Materialize(ctx context.Context, req RepoRequest) error {
 			return fmt.Errorf("preparing target %s: %w", targetAbs, err)
 		}
 	}
-	for _, j := range jobs {
-		if err := m.materializeOne(ctx, j.spec, targetAbs, j.opts); err != nil {
+	// Fan the clones out (bounded, ADR-0002); results come back in input
+	// order, so the failure summary is deterministic.
+	results := parallel.Map(ctx, req.Parallel, jobs, func(ctx context.Context, j job) error {
+		err := m.materializeOne(ctx, j.spec, targetAbs, j.opts)
+		if err != nil {
 			m.log.Warn("repo materialization failed", "ref", j.spec.Ref, "error", err)
-			failures = append(failures, ItemError{Ref: j.spec.Ref, Err: err})
+		}
+		return err
+	})
+	for i, err := range results {
+		if err != nil {
+			failures = append(failures, ItemError{Ref: jobs[i].spec.Ref, Err: err})
 		}
 	}
 	return errorOrNil(failures)

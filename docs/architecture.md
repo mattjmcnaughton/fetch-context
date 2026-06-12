@@ -36,6 +36,7 @@ internal/
     urlmap/                     # URL → filename mapping (R5)
     repoid/                     # Repo URL normalization (R6)
     targetpath/                 # Target root + spec → on-disk path
+    parallel/                   # Bounded-concurrency Map (ADR-0002)
     materialize/                # Use cases: MaterializeRepo, MaterializeGroup, MaterializeURL
     profile/                    # Use case: LoadProfile (composes the three above)
     clean/                      # Use case: Clean
@@ -106,7 +107,7 @@ on these; adapters implement them.
 
 | Port | Purpose | Adapter(s) |
 |---|---|---|
-| `GitRepo` | shallow clone, fetch + hard-reset, is-managed-clone check | `adapters/gitrepo` (git CLI) |
+| `GitRepo` | clone/refresh with depth+branch options (`CloneOptions`), fetch + hard-reset converging to the requested options, is-managed-clone check | `adapters/gitrepo` (git CLI) |
 | `ForgeEnumerator` | given a group slug, return `[]GroupRepo` with pagination + auth | `adapters/forge/github`, `adapters/forge/gitlab` |
 | `PageReader` | given URL, return markdown bytes (wraps origin URL with jina base) | `adapters/pagereader` (net/http) |
 | `FileStore` | write/mkdir/delete/exists/walk under target | `adapters/filestore` (afero.OsFs) |
@@ -188,6 +189,7 @@ table-driven tests.
 | `core/urlmap` | URL → on-disk filename | R5, AC-URL-01/02/06/07 |
 | `core/repoid` | Repo URL/shorthand normalization to `(host, owner, repo)` | R6, AC-REPO-06/11 |
 | `core/targetpath` | Target root + repo/url spec → absolute on-disk path | derived from AC-LAYOUT-*, AC-ROOT-01 |
+| `core/parallel` | Bounded-concurrency `Map` with input-order results; the only concurrency primitive in the core (no third-party dep — see ADR-0002) | ADR-0002, AC-GROUP-08 |
 
 These are the highest-value unit tests in the codebase — the rules are stable,
 the inputs are strings, the outputs are strings, and the assertions pin

@@ -171,3 +171,28 @@ profiles:
 		t.Errorf("mapping entry branch = %q, want develop", branch)
 	}
 }
+
+func TestAC_LOAD_08_ParallelFlagAcceptedAndValidated(t *testing.T) {
+	w := newWorkspace(t)
+	w.writeConfig(t, `
+profiles:
+  many:
+    repos:
+      - `+fixture.CloneURL("fixture/hello")+`
+      - `+fixture.CloneURL("fixture/other")+`
+      - `+fixture.CloneURL("fixture/refresh")+`
+`)
+	res := w.run("load", "--parallel", "4", "many")
+	if res.code != 0 {
+		t.Fatalf("exit = %d, stderr: %s", res.code, res.stderr)
+	}
+	for _, name := range []string{"hello", "other", "refresh"} {
+		if !isGit(w.target("repos", fixture.Host(), "fixture", name)) {
+			t.Errorf("%s missing", name)
+		}
+	}
+
+	if res := w.run("load", "--parallel", "0", "many"); res.code != 2 {
+		t.Errorf("--parallel 0 exit = %d, want 2 (usage error); stderr: %s", res.code, res.stderr)
+	}
+}

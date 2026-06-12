@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 
 	"github.com/spf13/afero"
 
@@ -26,8 +27,10 @@ type RefreshCall struct {
 	Options ports.CloneOptions
 }
 
-// FakeGitRepo implements ports.GitRepo.
+// FakeGitRepo implements ports.GitRepo. It is safe for concurrent use —
+// the use cases fan clones out (ADR-0002).
 type FakeGitRepo struct {
+	mu sync.Mutex
 	// Clones and Refreshes record successful-or-not invocations in order.
 	Clones    []CloneCall
 	Refreshes []RefreshCall
@@ -51,6 +54,8 @@ func NewGitRepo() *FakeGitRepo {
 }
 
 func (g *FakeGitRepo) Clone(_ context.Context, cloneURL, dest string, opts ports.CloneOptions) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	g.Clones = append(g.Clones, CloneCall{URL: cloneURL, Dest: dest, Options: opts})
 	if err := g.CloneErrs[cloneURL]; err != nil {
 		return err
@@ -66,11 +71,15 @@ func (g *FakeGitRepo) Clone(_ context.Context, cloneURL, dest string, opts ports
 }
 
 func (g *FakeGitRepo) Refresh(_ context.Context, dest string, opts ports.CloneOptions) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	g.Refreshes = append(g.Refreshes, RefreshCall{Dest: dest, Options: opts})
 	return g.RefreshErrs[dest]
 }
 
 func (g *FakeGitRepo) IsManagedClone(_ context.Context, dest string) (bool, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	return g.ManagedDirs[dest], nil
 }
 

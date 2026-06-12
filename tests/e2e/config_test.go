@@ -88,3 +88,27 @@ func TestAC_CONFIG_06_UnknownRepoEntryFieldErrors(t *testing.T) {
 		t.Errorf("stderr does not name the unknown field:\n%s", res.stderr)
 	}
 }
+
+func TestAC_CONFIG_07_CloneParallelValidatedAndEffective(t *testing.T) {
+	w := newWorkspace(t)
+	w.writeConfig(t, "clone:\n  parallel: 2\n")
+	res := w.run("group", "github.com/fixture-org")
+	if res.code != 0 {
+		t.Fatalf("exit = %d, stderr: %s", res.code, res.stderr)
+	}
+	for _, name := range []string{"alpha", "beta", "gamma"} {
+		if !isGit(w.target("repos", "github.com", "fixture-org", name)) {
+			t.Errorf("%s missing with clone.parallel: 2", name)
+		}
+	}
+
+	w2 := newWorkspace(t)
+	w2.writeConfig(t, "clone:\n  parallel: 0\n")
+	res = w2.run("list")
+	if res.code == 0 {
+		t.Fatal("clone.parallel: 0 must fail loudly")
+	}
+	if !strings.Contains(res.stderr, "parallel") {
+		t.Errorf("stderr does not name the invalid setting:\n%s", res.stderr)
+	}
+}

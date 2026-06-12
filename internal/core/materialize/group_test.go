@@ -186,3 +186,33 @@ func TestGroupDepthReachesEveryClone(t *testing.T) {
 		}
 	}
 }
+
+func TestGroupParallelFailuresStayInInputOrder(t *testing.T) {
+	f := newGroupFixture()
+	f.github.Repos["my-org"] = []ports.GroupRepo{
+		{Path: "bad1", CloneURL: "https://github.com/my-org/bad1.git"},
+		{Path: "ok", CloneURL: "https://github.com/my-org/ok.git"},
+		{Path: "bad2", CloneURL: "https://github.com/my-org/bad2.git"},
+	}
+	f.git.CloneErrs["https://github.com/my-org/bad1.git"] = errors.New("boom1")
+	f.git.CloneErrs["https://github.com/my-org/bad2.git"] = errors.New("boom2")
+
+	err := f.uc.Materialize(context.Background(), GroupRequest{
+		Refs: []string{"github.com/my-org"}, Target: ".agentic/sources", Depth: 1, Parallel: 3,
+	})
+	if err == nil {
+		t.Fatal("want error")
+	}
+	var batch *BatchError
+	if !errors.As(err, &batch) {
+		t.Fatalf("err = %T, want *BatchError", err)
+	}
+	if len(batch.Items) != 2 ||
+		batch.Items[0].Ref != "github.com/my-org: bad1" ||
+		batch.Items[1].Ref != "github.com/my-org: bad2" {
+		t.Errorf("failures = %+v, want bad1 then bad2 (enumeration order)", batch.Items)
+	}
+	if len(f.git.Clones) != 3 {
+		t.Errorf("Clones = %d, want all three attempted", len(f.git.Clones))
+	}
+}
