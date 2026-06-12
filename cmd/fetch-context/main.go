@@ -13,11 +13,14 @@ import (
 	"github.com/mattjmcnaughton/fetch-context/internal/adapters/cli"
 	"github.com/mattjmcnaughton/fetch-context/internal/adapters/configstore"
 	"github.com/mattjmcnaughton/fetch-context/internal/adapters/filestore"
+	"github.com/mattjmcnaughton/fetch-context/internal/adapters/forge/github"
+	"github.com/mattjmcnaughton/fetch-context/internal/adapters/forge/gitlab"
 	"github.com/mattjmcnaughton/fetch-context/internal/adapters/gitrepo"
 	"github.com/mattjmcnaughton/fetch-context/internal/adapters/hostrepo"
 	"github.com/mattjmcnaughton/fetch-context/internal/adapters/pagereader"
 	"github.com/mattjmcnaughton/fetch-context/internal/core/materialize"
 	"github.com/mattjmcnaughton/fetch-context/internal/core/usageerr"
+	"github.com/mattjmcnaughton/fetch-context/internal/ports"
 )
 
 func main() {
@@ -37,12 +40,21 @@ func main() {
 	locator := hostrepo.New()
 	cfg := configstore.Default()
 
-	// JINA_BASE_URL is a contract seam (acceptance.md §1.2): it redirects
-	// the reader proxy to a loopback mock in hermetic runs.
+	// JINA_BASE_URL / GITHUB_API_URL / GITLAB_API_URL are contract seams
+	// (acceptance.md §1.2): they redirect the outbound dependencies to
+	// loopback mocks in hermetic runs.
 	reader := pagereader.New(os.Getenv("JINA_BASE_URL"), log)
+
+	// Forge dispatch is keyed by host (ADR-0001 decision 1); a future forge
+	// is a new entry here, no core change.
+	enumerators := map[string]ports.ForgeEnumerator{
+		"github.com": github.New(os.Getenv("GITHUB_API_URL"), os.Getenv("GITHUB_TOKEN"), log),
+		"gitlab.com": gitlab.New(os.Getenv("GITLAB_API_URL"), os.Getenv("GITLAB_TOKEN"), log),
+	}
 
 	deps := cli.Deps{
 		Repo:   materialize.NewRepo(git, fs, locator, log),
+		Group:  materialize.NewGroup(enumerators, git, fs, locator, log),
 		URL:    materialize.NewURL(reader, fs, locator, log),
 		Target: cfg.Target,
 	}

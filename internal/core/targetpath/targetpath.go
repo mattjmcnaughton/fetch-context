@@ -33,6 +33,13 @@ func RepoDir(targetAbs string, spec repoid.Spec) string {
 	return filepath.Join(ReposRoot(targetAbs), spec.Host, spec.Owner, spec.Repo)
 }
 
+// GroupRepoDir maps one enumerated group repo to
+// repos/<host>/<group-slug>/<repo-path>, preserving subgroup segments in
+// both slug and path (AC-GROUP-02).
+func GroupRepoDir(targetAbs string, group repoid.GroupSpec, repoPath string) string {
+	return filepath.Join(ReposRoot(targetAbs), group.Host, group.Slug, repoPath)
+}
+
 // URLFile maps an already-mapped relative markdown path (see core/urlmap)
 // beneath urls/.
 func URLFile(targetAbs, mapped string) string {

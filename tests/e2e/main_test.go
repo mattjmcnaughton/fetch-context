@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/mattjmcnaughton/fetch-context/internal/testing/forgemock"
 	"github.com/mattjmcnaughton/fetch-context/internal/testing/gitfixture"
 	"github.com/mattjmcnaughton/fetch-context/internal/testing/readermock"
 )
@@ -24,6 +25,9 @@ var fixture *gitfixture.Server
 
 // reader is the suite-wide mock reader proxy.
 var reader *readermock.Server
+
+// forge is the suite-wide mock GitHub/GitLab API.
+var forge *forgemock.Server
 
 // privateToken gates the private fixture repo (AC-AUTH-02/03).
 const privateToken = "s3cret-token"
@@ -69,7 +73,37 @@ func runSuite(m *testing.M) (int, error) {
 	reader = readermock.New()
 	defer reader.Close()
 
+	forge = forgemock.New()
+	defer forge.Close()
+	seedForge()
+
 	return m.Run(), nil
+}
+
+// seedForge wires the mock forge's orgs/groups to clone URLs on the git
+// fixture (§1.3: every entry's clone URL points back at the git server).
+func seedForge() {
+	repo := func(name string) forgemock.Repo {
+		return forgemock.Repo{Path: lastSegment(name), CloneURL: fixture.CloneURL(name)}
+	}
+	forge.SeedGitHubOrg("fixture-org", []forgemock.Repo{
+		repo("fixture/alpha"), repo("fixture/beta"), repo("fixture/gamma"),
+	})
+	forge.SeedGitHubOrg("big-org", []forgemock.Repo{
+		repo("big/pg1"), repo("big/pg2"), repo("big/pg3"), repo("big/pg4"), repo("big/pg5"),
+	})
+	forge.RequireGitHubToken("private-org", privateToken)
+	forge.SeedGitHubOrg("private-org", []forgemock.Repo{repo("private/secret")})
+	forge.SeedGitLabGroup("acme", []forgemock.Repo{
+		{Path: "top", CloneURL: fixture.CloneURL("acme/top")},
+		{Path: "sub/nested", CloneURL: fixture.CloneURL("acme/sub/nested")},
+	})
+	// Small pages force pagination across the suite (AC-GROUP-03).
+	forge.SetMaxPageSize(2)
+}
+
+func lastSegment(name string) string {
+	return filepath.Base(name)
 }
 
 // seedFixture creates the §1.3 seed repos.
@@ -78,6 +112,16 @@ func seedFixture() error {
 		"fixture/hello":   {"MARKER": "hello marker\n"},
 		"fixture/other":   {"OTHER": "other\n"},
 		"fixture/refresh": {"MARKER": "v1\n"},
+		"fixture/alpha":   {"MARKER": "alpha\n"},
+		"fixture/beta":    {"MARKER": "beta\n"},
+		"fixture/gamma":   {"MARKER": "gamma\n"},
+		"big/pg1":         {"N": "1"},
+		"big/pg2":         {"N": "2"},
+		"big/pg3":         {"N": "3"},
+		"big/pg4":         {"N": "4"},
+		"big/pg5":         {"N": "5"},
+		"acme/top":        {"MARKER": "top\n"},
+		"acme/sub/nested": {"MARKER": "nested\n"},
 	}
 	for name, files := range public {
 		if err := fixture.Seed(name, files); err != nil {

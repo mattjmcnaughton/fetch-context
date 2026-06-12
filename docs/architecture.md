@@ -54,7 +54,7 @@ internal/
     gitrepo/                    # Driven: shells out to git binary
     forge/
       github/                   # Driven: api.github.com REST client
-      gitlab/                   # Driven: gitlab.com REST client (recursive subgroup walk)
+      gitlab/                   # Driven: gitlab.com REST client (subgroup recursion via include_subgroups)
     pagereader/                 # Driven: HTTP client wrapping jina base URL
     filestore/                  # Driven: afero.OsFs behind a narrow interface
     hostrepo/                   # Driven: `git rev-parse --show-toplevel`
@@ -115,10 +115,11 @@ on these; adapters implement them.
 | `Editor` | launch `$VISUAL` / `$EDITOR` / `vi` on a path, block until exit | `adapters/editor` (os/exec) |
 
 **One forge port, two adapters.** `ForgeEnumerator` is forge-agnostic; the use
-case asks for "the list of repos under this slug" and gets a flat `[]RepoSpec`.
-GitLab's recursive subgroup walk and GitHub's flat enumeration are
-adapter-internal concerns. A future Codeberg/Gitea adapter slots in without
-touching the core.
+case asks for "the list of repos under this slug" and gets a flat
+`[]GroupRepo` (path relative to the group + clone URL). GitLab's subgroup
+recursion (`include_subgroups=true`, subgroup path preserved in the result)
+and GitHub's flat enumeration are adapter-internal concerns. A future
+Codeberg/Gitea adapter slots in without touching the core.
 
 **`HostRepoLocator` is split from `GitRepo`.** Both shell out to `git`, but
 they answer questions about different repos — the host workspace vs. upstream

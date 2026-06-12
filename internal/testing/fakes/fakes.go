@@ -4,6 +4,7 @@ package fakes
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 
@@ -123,6 +124,35 @@ func (f *FakeFileStore) ReadString(path string) string {
 	return string(b)
 }
 
+// FakeForgeEnumerator implements ports.ForgeEnumerator.
+type FakeForgeEnumerator struct {
+	// Repos scripts enumeration results by slug.
+	Repos map[string][]ports.GroupRepo
+	// Errs scripts enumeration failures by slug.
+	Errs map[string]error
+	// Enumerated records the slugs asked for, in order.
+	Enumerated []string
+}
+
+func NewForgeEnumerator() *FakeForgeEnumerator {
+	return &FakeForgeEnumerator{
+		Repos: make(map[string][]ports.GroupRepo),
+		Errs:  make(map[string]error),
+	}
+}
+
+func (f *FakeForgeEnumerator) Enumerate(_ context.Context, slug string) ([]ports.GroupRepo, error) {
+	f.Enumerated = append(f.Enumerated, slug)
+	if err := f.Errs[slug]; err != nil {
+		return nil, err
+	}
+	repos, ok := f.Repos[slug]
+	if !ok {
+		return nil, fmt.Errorf("unknown slug %q", slug)
+	}
+	return repos, nil
+}
+
 // FakePageReader implements ports.PageReader.
 type FakePageReader struct {
 	// Fetched records every URL requested, in order.
@@ -160,4 +190,5 @@ var (
 	_ ports.HostRepoLocator = (*FakeHostRepoLocator)(nil)
 	_ ports.FileStore       = (*FakeFileStore)(nil)
 	_ ports.PageReader      = (*FakePageReader)(nil)
+	_ ports.ForgeEnumerator = (*FakeForgeEnumerator)(nil)
 )

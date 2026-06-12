@@ -33,7 +33,11 @@ func newWorkspace(t *testing.T) *workspace {
 	}
 	mustGit(t, w.dir, "init", "-q")
 	// Contract seams (acceptance.md §1.2) point at the loopback fixtures.
-	w.setEnv("JINA_BASE_URL=" + reader.URL())
+	w.setEnv(
+		"JINA_BASE_URL="+reader.URL(),
+		"GITHUB_API_URL="+forge.URL(),
+		"GITLAB_API_URL="+forge.URL(),
+	)
 	return w
 }
 
