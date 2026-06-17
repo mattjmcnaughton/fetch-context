@@ -51,6 +51,26 @@ func TestParse(t *testing.T) {
 			"https://github.com/foo/bar",
 			Spec{Ref: "https://github.com/foo/bar", Scheme: "https", Host: "github.com", Owner: "foo", Repo: "bar"},
 		},
+		{
+			"scp-like SSH ref",
+			"git@github.com:foo/bar.git",
+			Spec{Ref: "git@github.com:foo/bar.git", Scheme: "ssh", User: "git", Host: "github.com", Owner: "foo", Repo: "bar", scpLike: true},
+		},
+		{
+			"scp-like SSH ref with subgroup path",
+			"git@gitlab.com:acme/platform/team/utils.git",
+			Spec{Ref: "git@gitlab.com:acme/platform/team/utils.git", Scheme: "ssh", User: "git", Host: "gitlab.com", Owner: "acme/platform/team", Repo: "utils", scpLike: true},
+		},
+		{
+			"ssh:// URL",
+			"ssh://git@github.com/foo/bar.git",
+			Spec{Ref: "ssh://git@github.com/foo/bar.git", Scheme: "ssh", User: "git", Host: "github.com", Owner: "foo", Repo: "bar"},
+		},
+		{
+			"ssh:// URL with port",
+			"ssh://git@github.com:2222/foo/bar.git",
+			Spec{Ref: "ssh://git@github.com:2222/foo/bar.git", Scheme: "ssh", User: "git", Host: "github.com:2222", Owner: "foo", Repo: "bar"},
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -62,6 +82,28 @@ func TestParse(t *testing.T) {
 				t.Errorf("Parse(%q) = %+v, want %+v", c.in, got, c.want)
 			}
 		})
+	}
+}
+
+func TestKeyCollapsesAcrossProtocols(t *testing.T) {
+	// SSH and HTTPS forms of the same repo must dedup to one clone and land
+	// at the same host/owner/repo destination (AC-REPO-11 philosophy).
+	forms := []string{
+		"foo/bar",
+		"github.com/foo/bar",
+		"https://github.com/foo/bar.git",
+		"git@github.com:foo/bar.git",
+		"ssh://git@github.com/foo/bar.git",
+	}
+	want := "github.com/foo/bar"
+	for _, in := range forms {
+		spec, err := Parse(in)
+		if err != nil {
+			t.Fatalf("Parse(%q) error: %v", in, err)
+		}
+		if got := spec.Key(); got != want {
+			t.Errorf("Parse(%q).Key() = %q, want %q", in, got, want)
+		}
 	}
 }
 
@@ -96,6 +138,10 @@ func TestCloneURL(t *testing.T) {
 		{"host-qualified gets https", "gitlab.com/acme/lib", "https://gitlab.com/acme/lib.git"},
 		{"http scheme preserved", "http://127.0.0.1:5000/fixture/hello", "http://127.0.0.1:5000/fixture/hello.git"},
 		{"equivalent forms share a clone URL", "https://github.com/foo/bar.git", "https://github.com/foo/bar.git"},
+		{"scp-like SSH round-trips", "git@github.com:foo/bar.git", "git@github.com:foo/bar.git"},
+		{"scp-like SSH without .git gets .git", "git@github.com:foo/bar", "git@github.com:foo/bar.git"},
+		{"ssh:// URL preserved", "ssh://git@github.com/foo/bar.git", "ssh://git@github.com/foo/bar.git"},
+		{"ssh:// URL with port preserved", "ssh://git@github.com:2222/foo/bar.git", "ssh://git@github.com:2222/foo/bar.git"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

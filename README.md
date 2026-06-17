@@ -44,7 +44,7 @@ fetch-context repo github.com/foo/bar gitlab.com/acme/lib
 - Clones shallow (`--depth=1`) against the default branch by default.
 - `--depth N` controls history depth; `--depth 0` fetches **full history**. `--branch <name>` clones and tracks the named branch. The flags override the config's `clone:` section.
 - If the destination already exists as a clone, it is `git fetch`ed and **hard-reset to the remote's latest** — local state in the clone is discarded by design. The refresh **converges to the requested options**: a clone refreshed under `--depth 0` is unshallowed, one refreshed under `--depth N` is (re-)trimmed to N commits, and a pinned `--branch` different from the checked-out one is switched to.
-- Accepts a host-qualified path (`github.com/foo/bar`) or a full clone URL.
+- Accepts a host-qualified path (`github.com/foo/bar`), a full HTTP(S) clone URL, or an SSH ref (`git@github.com:foo/bar.git` or `ssh://git@github.com/foo/bar.git`). SSH refs clone over SSH; all forms of the same repo collapse to one destination.
 
 ### `group`
 
