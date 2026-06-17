@@ -645,10 +645,13 @@ directories in unrelated working dirs. See AC-ROOT-02.
 
 See AC-URL-06 and AC-URL-07.
 
-**R6 — Repo URL normalization.** `foo/bar`, `foo/bar/`, `foo/bar.git`, and
-`https://<host>/foo/bar.git` all normalize to one destination
+**R6 — Repo URL normalization.** `foo/bar`, `foo/bar/`, `foo/bar.git`,
+`https://<host>/foo/bar.git`, and the SSH forms `git@<host>:foo/bar.git` /
+`ssh://git@<host>/foo/bar.git` all normalize to one destination
 `repos/<host>/foo/bar/`. The same surface form appearing twice in one
-invocation produces one clone, not two. See AC-REPO-11.
+invocation produces one clone, not two. SSH refs clone over SSH (the clone
+URL preserves the SSH user and scp-like vs `ssh://` form); HTTP(S) and
+host-qualified forms clone over HTTPS. See AC-REPO-11.
 
 **R7 — `clean` and per-profile targets.** `clean` (no argument) and `clean
 repos|urls` continue to operate on the resolved global target only. A new
