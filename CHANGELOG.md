@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/mattjmcnaughton/fetch-context/compare/v1.0.0...v1.0.1) (2026-06-21)
+
+
+### Bug Fixes
+
+* **repoid:** clone SSH refs over SSH instead of HTTPS ([c03c0a6](https://github.com/mattjmcnaughton/fetch-context/commit/c03c0a6829b2b41ffa198a9dd2873555fe9087d6))
+
 # 1.0.0 (2026-06-13)
 
 
